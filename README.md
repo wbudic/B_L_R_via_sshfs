@@ -23,7 +23,7 @@ git clone https://github.com/wbudic/B_L_R_via_sshf
 
 ## Configuration
 
-Create a mount point, ever once befor runing the backup.sh:
+Create a mount point, ever once before runing any oth scripts.
 ```
 sudo mkdir /mnt/{REMOTE_SERVER_ALIAS_OR_IP}
 ```
