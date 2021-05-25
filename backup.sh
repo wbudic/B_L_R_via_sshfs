@@ -6,7 +6,7 @@ SRC_DIR=`dirname "$0"`
 DIRECTORIES="Documents dev Pictures Public Videos dev .cinnamon"
 #DIRECTORIES="dev/LifeLog"
 BACKUP_FILE="$THIS_MACHINE-$(date +%Y%m%d).tar.gz.enc"
-BACKUP_INDEX="$THIS_MACHINE-$(date +%Y%m%d).lst"
+BACKUP_INDEX="$THIS_MACHINE-$(date +%Y%m%d).lst.gz"
 BACKUP_START=`date +%F%t%T`
 
 echo "Your about to backup '$HOME' to $BACKUP_FILE" "Please enter $THIS_MACHINE's sudo password ->"
@@ -44,6 +44,6 @@ popd
 backup 
 echo "Creating contents list file, please wait..."
 gpg --decrypt --batch --passphrase $GPG_PASS "/mnt/$DEST_SERVER/$BACKUP_FILE" | \
-tar tvz | awk -F " " '{print $6}' > /mnt/$DEST_SERVER/$BACKUP_INDEX ; 
+tar tvz | awk -F " " '{print $6}' | gzip -c --best >  /mnt/$DEST_SERVER/$BACKUP_INDEX ; 
 echo "done with backup " `date` ", have a nice day!"
 

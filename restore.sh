@@ -6,7 +6,7 @@ SRC_DIR=`dirname "$0"`
 echo -e "\nYour are about to restore from '$DEST_SERVER'" "Please enter $THIS_MACHINE's sudo password ->"
 sudo sshfs "$USER@$DEST_SERVER:backups" /mnt/$DEST_SERVER -o allow_other 
 
-RESTORE_FILE=$(ls /mnt/$DEST_SERVER/$THIS_MACHINE-*.tar.gz.enc)
+RESTORE_FILE=$(ls /mnt/$DEST_SERVER/$THIS_MACHINE-*.tar.gz.enc|tail -n 1)
 echo "Located backup file is -> $RESTORE_FILE"
 
 if [[ "." = "$SRC_DIR" ]]

@@ -11,8 +11,7 @@ echo -e "Usage: $SRC_DIR/list.sh -keep - With -keep argument a previously create
 
 echo "Please enter $THIS_MACHINE's sudo password ->"
 sudo sshfs $USER@$DEST_SERVER:backups /mnt/$DEST_SERVER -o allow_other > /dev/null 2>&1
-
-sel=$(ls -lah /mnt/$DEST_SERVER/$THIS_MACHINE-*.lst| awk -F " " '{printf $9}' | xargs cat |sort -f -i -u | fzf --multi)
+sel=$(gunzip -c /mnt/$DEST_SERVER/$THIS_MACHINE-*.lst.gz |sort -f -i -u | fzf --multi)
 [[ -z $sel ]] &&  exit;
 [[ -z $1   ]] && rm restore.lst > /dev/null;
 for f in $sel
