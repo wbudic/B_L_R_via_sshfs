@@ -60,7 +60,7 @@ or
 ```
 you@your_pc:~/temp/backup$ ~/list.sh -?
 ```
-to see further option.
+to see further options.
 
 
 
