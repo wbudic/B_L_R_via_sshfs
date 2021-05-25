@@ -15,7 +15,7 @@ sudo apt install gpg -y
 ```
 Install also [FZF](https://github.com/junegunn/fzf), to use the awesome **list.sh** script.
 
-### To install B_L_R_via_sshfs
+### To install this project
 
 ```
 git clone https://github.com/wbudic/B_L_R_via_sshf
