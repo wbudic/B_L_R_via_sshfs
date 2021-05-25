@@ -40,8 +40,6 @@ It is recomended to use an alias in the script. Which is set by modifying your *
 
 ## Running
 
-Call to backup:
-
 ./**backup.sh** can be called from any directory.
 
 To restore home root directory is required or an temporary one, with or without an list of files to extract.
@@ -52,7 +50,7 @@ Examples:
 you@your_pc:$ mkdir ~/temp/backup; cd ~/temp/backup
 you@your_pc:~/temp/backup$ ~/restore.sh restore.lst
 ```
-To create a selective restore list of one or many files.
+To create a selective restore list of one or many files. Run ./**list.sh** in the directory you want to restore to. You can select multiple files by highlighting the file in a line and pressing the **tab** key.
 ```BASH
 you@your_pc:~/temp/backup$ ~/list.sh
 ```
@@ -60,7 +58,7 @@ or
 ```
 you@your_pc:~/temp/backup$ ~/list.sh -?
 ```
-to see further options.
+to see help on further options.
 
 
 
