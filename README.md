@@ -12,6 +12,7 @@ You are required sudo access, and have the following linux packages installed:
 sudo apt install ssh -y
 sudo apt install sshfs -y
 sudo apt install gpg -y
+sudo apt install pv -y
 ```
 Install also [FZF](https://github.com/junegunn/fzf), to use the awesome **list.sh** script.
 
@@ -61,8 +62,19 @@ you@your_pc:~/temp/backup$ ~/list.sh -?
 to see help on further options.
 
 
+## Vim Integration
 
+To capture and observe the backup in vim. It is recomended to use the AsyncRun plugin.
 
+Activate the backup in vim with command:
+
+```BASH
+:AsyncRun -mode=term -pos=tab ./backup.sh
+```
+This can take a long time, you can create a new window while it is busy, and/or to navigate to previous tab.
+**<ctrl>ws** **gt**
+
+Notice - Large backup list are in raw text format in a terminal, they will not hog your computer or require as much memory as an word document.
 
 
 
