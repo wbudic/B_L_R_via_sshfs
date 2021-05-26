@@ -9,8 +9,8 @@ BACKUP_FILE="$THIS_MACHINE-$(date +%Y%m%d).tar.gz.enc"
 BACKUP_INDEX="$THIS_MACHINE-$(date +%Y%m%d).lst.gz"
 BACKUP_START=`date +%F%t%T`
 
-echo "Your about to backup '$HOME' to $BACKUP_FILE" "Please enter $THIS_MACHINE's sudo password ->"
-sudo sshfs "$USER@$DEST_SERVER:backups" /mnt/$DEST_SERVER -o allow_other 
+echo "your about to backup '$home' to $backup_file" "please enter $this_machine's sudo password ->"
+sudo sshfs "$user@$dest_server:backups" /mnt/$DEST_SERVER -o allow_other 
 
 function backup () {
 
@@ -43,7 +43,7 @@ popd
 ##
 backup 
 echo "Creating contents list file, please wait..."
-gpg --decrypt --batch --passphrase $GPG_PASS "/mnt/$DEST_SERVER/$BACKUP_FILE" | \
-tar tvz | awk -F " " '{print $6}' | gzip -c --best >  /mnt/$DEST_SERVER/$BACKUP_INDEX ; 
+gpg -q --decrypt --batch --passphrase $GPG_PASS "/mnt/$DEST_SERVER/$BACKUP_FILE" | \
+tar tvz | awk -F " " '{print $6}' | pv | gzip -c --best >  /mnt/$DEST_SERVER/$BACKUP_INDEX ; 
 echo "done with backup " `date` ", have a nice day!"
 
