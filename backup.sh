@@ -29,7 +29,7 @@ df -h "/mnt/$DEST_SERVER/$BACKUP_FILE";
 #Remove older backups
 find /mnt/$DEST_SERVER/$THIS_MACHINE*.tar.gz -mtime 1 -exec rm {} + 
 echo '#########################################################################'; 
-echo "Backed has finished of: $USER@$DEST_SERVER:backups/mnt/$DEST_SERVER/$BACKUPFILE"
+echo "Backup has finished for: $USER@$DEST_SERVER:backups/mnt/$DEST_SERVER/$BACKUPFILE"
 BACKUP_END=`date +%F%t%T`;
 echo "Backup started: $BACKUP_START"
 echo "Backup ended  : $BACKUP_END"
