@@ -5,11 +5,12 @@ SRC_DIR=`dirname "$0"`
 #
 DIRECTORIES="Documents dev Pictures Public Videos dev .cinnamon"
 #DIRECTORIES="dev/LifeLog"
-BACKUP_FILE="$THIS_MACHINE-$(date +%Y%m%d).tar.gz.enc"
-BACKUP_INDEX="$THIS_MACHINE-$(date +%Y%m%d).lst.gz"
+DATE=$(date +%Y%m%d)
+BACKUP_FILE="$THIS_MACHINE-$DATE.ar.gz.enc"
+BACKUP_INDEX="$THIS_MACHINE-$DATE.lst.gz"
 BACKUP_START=`date +%F%t%T`
 
-echo "your about to backup '$home' to $backup_file" "please enter $this_machine's sudo password ->"
+echo "Your are about to backup '$HOME' to $BACKUP_FILE" "please enter $this_machine's sudo password ->"
 sudo sshfs "$user@$dest_server:backups" /mnt/$DEST_SERVER -o allow_other 
 
 function backup () {
@@ -27,7 +28,8 @@ echo '#########################################################################'
 ls -lah "/mnt/$DEST_SERVER/$BACKUP_FILE"; 
 df -h "/mnt/$DEST_SERVER/$BACKUP_FILE";
 #Remove older backups
-find /mnt/$DEST_SERVER/$THIS_MACHINE*.tar.gz -mtime 1 -exec rm {} + 
+find /mnt/$DEST_SERVER/$THIS_MACHINE*.tar.gz.enc -mtime +1 -exec rm {} + 
+find /mnt/$DEST_SERVER/$THIS_MACHINE*.lst.tar -mtime +1 -exec rm {} + 
 echo '#########################################################################'; 
 echo "Backup has finished for: $USER@$DEST_SERVER:backups/mnt/$DEST_SERVER/$BACKUPFILE"
 BACKUP_END=`date +%F%t%T`;
@@ -45,5 +47,5 @@ backup
 echo "Creating contents list file, please wait..."
 gpg -q --decrypt --batch --passphrase $GPG_PASS "/mnt/$DEST_SERVER/$BACKUP_FILE" | \
 tar tvz | awk -F " " '{print $6}' | pv | gzip -c --best >  /mnt/$DEST_SERVER/$BACKUP_INDEX ; 
-echo "done with backup " `date` ", have a nice day!"
+echo "done with backup " `date`", have a nice day!"
 
