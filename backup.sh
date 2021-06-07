@@ -6,12 +6,12 @@ SRC_DIR=`dirname "$0"`
 DIRECTORIES="Documents dev Pictures Public Videos dev .cinnamon"
 #DIRECTORIES="dev/LifeLog"
 DATE=$(date +%Y%m%d)
-BACKUP_FILE="$THIS_MACHINE-$DATE.ar.gz.enc"
+BACKUP_FILE="$THIS_MACHINE-$DATE.tar.gz.enc"
 BACKUP_INDEX="$THIS_MACHINE-$DATE.lst.gz"
 BACKUP_START=`date +%F%t%T`
 
 echo "Your are about to backup '$HOME' to $BACKUP_FILE" "please enter $this_machine's sudo password ->"
-sudo sshfs "$user@$dest_server:backups" /mnt/$DEST_SERVER -o allow_other 
+sudo sshfs "$USER@$DEST_SERVER:backups" /mnt/$DEST_SERVER -o allow_other 
 
 function backup () {
 
