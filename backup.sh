@@ -14,7 +14,7 @@ echo "Your are about to backup '$HOME' to $BACKUP_FILE" "please enter $this_mach
 sudo sshfs "$USER@$DEST_SERVER:backups" /mnt/$DEST_SERVER -o allow_other 
 
 function backup () {
-
+    
 echo "Creating /mnt/$DEST_SERVER/$BACKUP_FILE"
 pushd $HOME
 tar cvzi - \
@@ -29,7 +29,7 @@ ls -lah "/mnt/$DEST_SERVER/$BACKUP_FILE";
 df -h "/mnt/$DEST_SERVER/$BACKUP_FILE";
 #Remove older backups
 find /mnt/$DEST_SERVER/$THIS_MACHINE*.tar.gz.enc -mtime +1 -exec rm {} + 
-find /mnt/$DEST_SERVER/$THIS_MACHINE*.lst.tar -mtime +1 -exec rm {} + 
+find /mnt/$DEST_SERVER/$THIS_MACHINE*.lst.gz -mtime +1 -exec rm {} + 
 echo '#########################################################################'; 
 echo "Backup has finished for: $USER@$DEST_SERVER:backups/mnt/$DEST_SERVER/$BACKUPFILE"
 BACKUP_END=`date +%F%t%T`;
@@ -38,7 +38,6 @@ echo "Backup ended  : $BACKUP_END"
 echo -n "Backup took: ";
 dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END";
 popd
-
 }
 
 
