@@ -14,21 +14,23 @@ sudo sshfs $USER@$DEST_SERVER:backups /mnt/$DEST_SERVER -o allow_other > /dev/nu
 sel=$(gunzip -c /mnt/$DEST_SERVER/$THIS_MACHINE-*.lst.gz |sort -f -i -u | fzf --multi)
 [[ -z $sel ]] &&  exit;
 [[ -z $1   ]] && rm restore.lst > /dev/null;
+
+
 for n in $sel
 do
       echo $n >> restore.lst
 done
-echo -e "\nRestore list contents:"
-cat restore.lst | sort -u | while read n
+      echo -e "\nRestore list contents:"
+      cat restore.lst | sort -u | while read n
 do 
 if [[ -d ~/$n ]]
 then
-echo -e "-------------------------------"
-echo -e "Listing found existing dir, selected as: $n";
-ls -laht ~/$n;
-echo -e "-------------------------------"
+      echo -e "-------------------------------"
+      echo -e "Listing found existing dir, selected as: $n";
+      ls -laht ~/$n;
+      echo -e "-------------------------------"
 else
-echo -e "$n"
+      echo -e "$n"
 fi
 done
 
