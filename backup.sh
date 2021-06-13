@@ -3,8 +3,6 @@
 SRC_DIR=`dirname "$0"`
 . $SRC_DIR/backup.config
 #
-DIRECTORIES="Documents dev Pictures Public Videos dev .cinnamon"
-#DIRECTORIES="dev/LifeLog"
 DATE=$(date +%Y%m%d)
 BACKUP_FILE="$THIS_MACHINE-$DATE.tar.gz.enc"
 BACKUP_INDEX="$THIS_MACHINE-$DATE.lst.gz"
@@ -17,12 +15,8 @@ function backup () {
     
 echo "Creating /mnt/$DEST_SERVER/$BACKUP_FILE"
 pushd $HOME
-tar cvzi - \
- --exclude='*Cache*' --exclude='*chromium*' --exclude='*.config/Code/*'  \
- --exclude='*.config/Signal/*' --exclude='*.config/*torrent*/*' \
- --exclude='*.config/session/*' --exclude='*.config/libreoffice/*' --exclude='*.config/google-chrome/*'  \
- --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups $DIRECTORIES \
- *.sh .vim* .bash* .configREM .tmux.conf | \
+tar -cvzi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
+$DIRECTORIES $WILDFILES | \
 gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > /mnt/$DEST_SERVER/$BACKUP_FILE 2>&1 ;  
 echo '#########################################################################'; 
 ls -lah "/mnt/$DEST_SERVER/$BACKUP_FILE"; 
