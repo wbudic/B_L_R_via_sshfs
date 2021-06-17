@@ -87,19 +87,25 @@ sub cocoon {
         }
         print "Error: Cocoon name not specified!\n"; exit 2;
     }
-    $archive = "$name.$cocoon.cocoon";
+    $archive = "$name.cocoon";
     $cocoon  = $gpgpass if $cocoon =~ m/.*-cocoon$/g;
     $cocoon  = cocoonPassword($cocoon);
-  
 
-    print "Generating cocoon: $archive\n";        
-    # system("tar -cvzi ".join(' ', sort(keys %exclds))." ".
-    #                     join(' ', sort(keys %paths))." ".
-    #                     join(' ', sort(keys %curr)).
-    #        "| gpg -c --no-symkey-cache --batch --passphrase $gpgpass > $archive 2>&1");
+    if($action eq "LIST"){
+        if ($showfull) {$showfull="tvz"}else{$showfull="tz"}
+        if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
+        system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive | tar $fuzzy 2>&1");    
+        print "Listed archive: $archive\n";
+    }else{
+        print "Generating cocoon: $archive\n";
+        system("tar -cvzi ".join(' ', sort(keys %exclds))." ".
+                            join(' ', sort(keys %paths))." ".
+                            join(' ', sort(keys %curr)).
+                " | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
 
-    print "Action: $action\n";
-    print "Cocoon passcode: $cocoon\n";#./enarch.pl --cocoon=M9-21-3H-2C-40-JF-79-1E --name=test -f=~/backupDBLifeLog.sh
+        print "Action: $action\n";
+        print "Cocoon passcode: $cocoon\n";
+    }
 }
 sub list {
     #Let's try to find the most current, so with passcode also matches.
@@ -118,7 +124,7 @@ sub list {
         }
         if ($showfull) {$showfull="tvz"}else{$showfull="tz"}
         if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
-        system("/usr/bin/gpg --no-verbose --decrypt --batch --passphrase $gpgpass $archive | tar $fuzzy 2>&1");    
+        system("gpg --no-verbose --decrypt --batch --passphrase $gpgpass $archive | tar $fuzzy 2>&1");    
         print "Listed archive: $archive\n";
     }
 }
@@ -178,13 +184,13 @@ sub gpgPassCodeCheck {
 sub cocoonPassword {
     my $gpg = shift;
     my @arr;
-    my $code="";    
+    my ($short_form, $code)=(0,"");    
     die "Error passed where is the GPG summit argument \$cocoonPassword\@{$gpg}" if length ($gpg) < 8;
         if($gpg =~ m/-/g){# It is presumed holds the long gpg format.
             @arr = $gpg =~ m/[^-]/g; 
         }
         else{
-            @arr = $gpg =~ m/./g; 
+            @arr = $gpg =~ m/./g; $short_form =1;
         }
         die "Invalid GPG summit passcode provided: $gpg" if scalar @arr == 0;   
         for (my $i=1;$i<(scalar @arr);$i+=2){
@@ -193,8 +199,13 @@ sub cocoonPassword {
                 die "Invalid GPG summit passcode provided: [@arr] idx$i:[$c]" if ! $pass;
              $code .= $c;
         }
-        $code .= $arr[0]; #<- A twist in my sobriety, the cocoon algorithm was created by WB. 
-    die "Invalid GPG passcode provided:[@arr] $code" if length $code!=8;    
+        $code .= $arr[0]; 
+        if($short_form){
+           $code = $gpg; $short_form = 6;
+        }
+
+        die "Invalid GPG passcode provided:[@arr] $code" if length $code!=8;    
+        
     return $code;
 }
 
