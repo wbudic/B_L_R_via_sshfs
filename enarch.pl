@@ -92,13 +92,17 @@ sub cocoon {
     $cocoon  = cocoonPassword($cocoon);
 
     if($action eq "LIST"){
-        if ($showfull) {$showfull="tvz"}else{$showfull="tz"}
+        if ($showfull) {$showfull="-Jtv"}else{$showfull="-Jt"}
         if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
-        system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive | tar $fuzzy 2>&1");    
-        print "Listed archive: $archive\n";
+        my $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive | tar $fuzzy 2>&1");    
+        if($res){
+            print "Error: Failed to list archive: $archive. Cocoon password suplied: $cocoon\n";
+        }else{
+            print "Listed archive: $archive\n";
+        }
     }else{
-        print "Generating cocoon: $archive\n";
-        system("tar -cvzi ".join(' ', sort(keys %exclds))." ".
+        print "Generating cocoon: $archive\n";$paths{$target} = $target;
+        system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
                             join(' ', sort(keys %paths))." ".
                             join(' ', sort(keys %curr)).
                 " | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
@@ -281,4 +285,4 @@ Requirments:
 openpgp, fzf
 
 --------------------------------------------------------------------------------------------------------------
-
+# This file originated from https://github.com/wbudic/B_L_R_via_sshfs

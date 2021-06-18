@@ -11,7 +11,7 @@ echo -e "Usage: $SRC_DIR/list.sh -keep - With -keep argument a previously create
 
 echo "Please enter $THIS_MACHINE's sudo password ->"
 sudo sshfs $USER@$DEST_SERVER:backups /mnt/$DEST_SERVER -o allow_other > /dev/null 2>&1
-sel=$(gunzip -c /mnt/$DEST_SERVER/$THIS_MACHINE-*.lst.gz |sort -f -i -u | fzf --multi)
+sel=$(xzcat /mnt/$DEST_SERVER/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi)
 [[ -z $sel ]] &&  exit;
 [[ -z $1   ]] && rm restore.lst > /dev/null;
 
@@ -38,3 +38,4 @@ echo -e "Note - existing directories that have been found and listed above." \
 "\n During restore can potentialy overwite existing files or leave put does not found in backup."
 
 exit
+# This file originated from https://github.com/wbudic/B_L_R_via_sshfs
