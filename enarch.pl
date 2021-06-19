@@ -10,6 +10,7 @@ my %exclds = ();
 my %curr   = ();
 my @DIGITS = "1234567890ABCDEFGHIJKLMWENCARCHIVE" =~ m/./g;
 my $DEBUG  = 0;
+my $COCOON_ATTACH_LETTER = 'cocoon_attached_letter.txt';
 
 foreach my $a (@ARGV){
     my $v = $a; $v =~ s/^-+.*=//;
@@ -19,8 +20,8 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(generate)/i)    {print "New gpg passcode: ", gpgPassCodeGenerate(), "\n";exit 1;}
     elsif($a =~ m/^-+.*(target)/i)      {$paths{$target} = $target if $target; $target = $v;}
     elsif($a =~ m/^-+.*(name)/i)        {$name = $v;}
-    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}
-    elsif($a =~ m/^-+.*(letter)/i)      {$attach_letter = 1}
+    elsif($a =~ m/^-+.*(letter)/i)      {$attach_letter = $v;next}
+    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}    
     elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(fuzzy)|(fzf)/i) {$action='LIST'; $fuzzy=1; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(restore)/i)     {$action='RESTORE'}
@@ -91,48 +92,81 @@ sub cocoon {
     $archive = "$name.cocoon";
     $cocoon  = $gpgpass if $cocoon =~ m/.*-cocoon$/g;
     $cocoon  = cocoonPassword($cocoon);
-
+    my $res;
     if($action eq "LIST"){
         if ($showfull) {$showfull="-Jtv"}else{$showfull="-Jt"}
         if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
-        my $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive | tar $fuzzy 2>&1");    
+        $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive 2>/dev/null | tar $fuzzy ");    
         if($res){
             print "Error: Failed to list archive: $archive. Cocoon password suplied: $cocoon\n";
         }else{
             print "Listed archive: $archive\n";
         }
+        if($attach_letter){
+
+            if($attach_letter =~ /-letter$/){
+                $attach_letter=$COCOON_ATTACH_LETTER;
+            }
+            print "\nContents of $attach_letter:\n"; print "-" x 80, "\n";
+            $res = 
+        system("gpg --no-tty --decrypt --batch --passphrase $cocoon $archive  2>/dev/null | tar -Jxo --to-stdout $attach_letter | cat -"); 
+            if($res){
+                print "Error: Archive: $archive. Contains no letter: $attach_letter\n";
+            }
+            else{
+                print "-" x 80, "\n";
+            }
+        }
     }
     elsif($action eq "RESTORE"){
         my $files = join(' ', sort(keys %curr));
-        my $res = system("gpg --decrypt --batch --passphrase $cocoon $archive | tar -Jxv --strip-components 2 $files");
+        $res = system("gpg --decrypt --batch --passphrase $cocoon $archive | tar -Jxv --strip-components 2 $files");
         if($res){
             print "Error: Failed to restore archive: $archive. Cocoon password suplied: $cocoon\n";
         }else{
             print "Restored archive: $archive\n";
         }
     }else{
-        if($attach_letter){ 
-            my ($FH, $input);
-            $attach_letter="cocoon_attached_letter.txt";
-            unless(open $FH, '>', $attach_letter) {
-                die "\nUnable to create $attach_letter\n";
+        if($attach_letter){
+
+            if($attach_letter =~ /-letter$/){
+                $attach_letter=$COCOON_ATTACH_LETTER;
             }
-            print "Type in letter, terminate with '\\0' as last line:\n";
-            while(  $input = <STDIN> ) {
-              chomp($input); last if $input eq "\\0";
-              print $FH "$input\n";              
+            elsif(! -f $attach_letter){
+                die "Letter file not found: $attach_letter"
+            }else{
+                $paths{$attach_letter}=$attach_letter;
+                undef $attach_letter;
             }
-            close $FH;
-            $paths{$attach_letter}=$attach_letter; #attaching to path to appear first in archive.
+
+            if($attach_letter){
+                my ($FH, $input);
+                unless(open $FH, '>', $attach_letter) {
+                    die "\nUnable to create $attach_letter\n";
+                }
+                print "You are editing a letter for a NEW cocoon archive: $archive\n";
+                print "To finish typing finish with an '\\0' as the last line:\n";
+                print "-" x 80, "\n";       
+                while(  $input = <STDIN> ) {
+                    chomp($input); last if $input eq "\\0";
+                    print $FH "$input\n";              
+                }
+                close $FH;
+                $paths{$attach_letter}=$attach_letter; #attaching to path to appear first in archive.
+            }
         }
         print "Generating cocoon: $archive\n";$paths{$target} = $target;
-        system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
+        $res = system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
                             join(' ', sort(keys %paths))." ".
                             join(' ', sort(keys %curr)).
                 " | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
-
-        print "Action: $action\n";
-        print "Cocoon passcode: $cocoon\n";
+        if($res){
+            print "Action: $action failed! Err: $!\n";     
+        }else{
+            `rm $attach_letter` if $attach_letter eq $COCOON_ATTACH_LETTER;
+            print "Action: $action Finished succesfully!\n";
+            print "Cocoon passcode: $cocoon\n";
+        }
     }
 }
 sub list {
