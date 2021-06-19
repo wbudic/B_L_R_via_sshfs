@@ -1,7 +1,7 @@
 #!/bin/perl
 use strict;
 
-my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon);
+my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon, $attach_letter);
 my $host   =`uname -n`;
 my $date   = `date "+%Y%m%d"`;
 my $ext    = 'tar.gz.enc';
@@ -19,7 +19,8 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(generate)/i)    {print "New gpg passcode: ", gpgPassCodeGenerate(), "\n";exit 1;}
     elsif($a =~ m/^-+.*(target)/i)      {$paths{$target} = $target if $target; $target = $v;}
     elsif($a =~ m/^-+.*(name)/i)        {$name = $v;}
-    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}    
+    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}
+    elsif($a =~ m/^-+.*(letter)/i)      {$attach_letter = 1}
     elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(fuzzy)|(fzf)/i) {$action='LIST'; $fuzzy=1; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(restore)/i)     {$action='RESTORE'}
@@ -100,7 +101,30 @@ sub cocoon {
         }else{
             print "Listed archive: $archive\n";
         }
+    }
+    elsif($action eq "RESTORE"){
+        my $files = join(' ', sort(keys %curr));
+        my $res = system("gpg --decrypt --batch --passphrase $cocoon $archive | tar -Jxv --strip-components 2 $files");
+        if($res){
+            print "Error: Failed to restore archive: $archive. Cocoon password suplied: $cocoon\n";
+        }else{
+            print "Restored archive: $archive\n";
+        }
     }else{
+        if($attach_letter){ 
+            my ($FH, $input);
+            $attach_letter="cocoon_attached_letter.txt";
+            unless(open $FH, '>', $attach_letter) {
+                die "\nUnable to create $attach_letter\n";
+            }
+            print "Type in letter, terminate with '\\0' as last line:\n";
+            while(  $input = <STDIN> ) {
+              chomp($input); last if $input eq "\\0";
+              print $FH "$input\n";              
+            }
+            close $FH;
+            $paths{$attach_letter}=$attach_letter; #attaching to path to appear first in archive.
+        }
         print "Generating cocoon: $archive\n";$paths{$target} = $target;
         system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
                             join(' ', sort(keys %paths))." ".
@@ -239,6 +263,7 @@ Options:
                   Cocoons have the .cocoon file extension. Suitable for attaching to emails. 
                   You have to use an exting valid gpgpass, to create an cocoon, which can be shared over the internet.
                   Cocoon password will be provided upon archiving.
+-letter         - Pipe in or type message to cocoon, for the archive. 
 
 -h/? - This help file.
 
