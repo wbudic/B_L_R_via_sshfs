@@ -1,7 +1,8 @@
 #!/bin/perl
 use strict;
+use sigtrap qw/die normal-signals/;
 
-my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon, $attach_letter);
+my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon, $attach_letter, $vim, $nolog);
 my $host   =`uname -n`;
 my $date   = `date "+%Y%m%d"`;
 my $ext    = 'tar.gz.enc';
@@ -11,6 +12,8 @@ my %curr   = ();
 my @DIGITS = "1234567890ABCDEFGHIJKLMWENCARCHIVE" =~ m/./g;
 my $DEBUG  = 0;
 my $COCOON_ATTACH_LETTER = 'cocoon_attached_letter.txt';
+my $BACKUP_START=`date '+%F %T'`;
+my $BACKUP_END;
 
 foreach my $a (@ARGV){
     my $v = $a; $v =~ s/^-+.*=//;
@@ -21,6 +24,7 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(target)/i)      {$paths{$target} = $target if $target; $target = $v;}
     elsif($a =~ m/^-+.*(name)/i)        {$name = $v;}
     elsif($a =~ m/^-+.*(letter)/i)      {$attach_letter = $v;next}
+    elsif($a =~ m/^-+.*(vim)/i)         {$attach_letter = $v;$vim = 1;next}
     elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}    
     elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(fuzzy)|(fzf)/i) {$action='LIST'; $fuzzy=1; $showfull=1 if $v eq 'full'}
@@ -29,6 +33,7 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(postfix)/i)     {$postfix = $v; $postfix =0 if $postfix =~ /^of+/ || $postfix =~ /^0/}
     elsif($a =~ m/^-+.*(ex)/i)          {$exclds{"--exclude=$v"}=$v}    
     elsif($a =~ m/^-+.*(cur)|(f)/i)     {$curr{"$v"}=$v}
+    elsif($a =~ m/^-+.*(no-logging)/i)  {$nolog=1}
     elsif($a !~ m/^-+/){                        
         if(-d $a){           
             if (!$target) {
@@ -51,13 +56,14 @@ foreach my $a (@ARGV){
     }    
 }
 
+
 if($cocoon){&cocoon; exit 1;}
 elsif($action ne 'HELP'){
     if(!$target){
-        print "Error: Target directory not specified!\n"; exit 2;
+        print "Error: Target directory not specified!\nMaybe issue [$0 -?] for help.\n"; exit 2;
     }
     if(!$name){
-        print "Error: Target archive name not specified!\n"; exit 2;
+        print "Error: Target archive name not specified!\nMaybe issue [$0 -?] for help.\n"; exit 2;
     }
     $target =~ s/\/$//; $host =~ s/\s//;$date =~ s/\s//;
     if($postfix == 1 || $postfix eq 'on'){$postfix="-".&rc}
@@ -66,7 +72,7 @@ elsif($action ne 'HELP'){
 
 if   ($action eq 'ARCHIVE'){&archive;}
 elsif($action eq 'RESTORE'){&restore;}
-elsif($action eq 'LIST'){&list;}
+elsif($action eq 'LIST')   {&list;}
 else{
     print "No action to perform detected.\n";
 }
@@ -78,8 +84,10 @@ sub archive {
     system("tar -cvzi ".join(' ', sort(keys %exclds))." ".
                         join(' ', sort(keys %paths))." ".
                         join(' ', sort(keys %curr)).
-           "| gpg -c --no-symkey-cache --batch --passphrase $gpgpass > $archive 2>&1");
+           "| pv | gpg -c --no-symkey-cache --batch --passphrase $gpgpass > $archive 2>&1");    
     print "Done generating: $archive\n";
+    logToCnf($gpgpass, $archive);
+    &printArchivingTook;
 }
 sub cocoon {
     if(!$name){
@@ -96,7 +104,7 @@ sub cocoon {
     if($action eq "LIST"){
         if ($showfull) {$showfull="-Jtv"}else{$showfull="-Jt"}
         if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
-        $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive 2>/dev/null | tar $fuzzy ");    
+           $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive 2>/dev/null | tar $fuzzy ");    
         if($res){
             print "Error: Failed to list archive: $archive. Cocoon password suplied: $cocoon\n";
         }else{
@@ -105,7 +113,7 @@ sub cocoon {
         if($attach_letter){
 
             if($attach_letter =~ /-letter$/){
-                $attach_letter=$COCOON_ATTACH_LETTER;
+               $attach_letter = $COCOON_ATTACH_LETTER;
             }
             print "\nContents of $attach_letter:\n"; print "-" x 80, "\n";
             $res = 
@@ -129,8 +137,8 @@ sub cocoon {
     }else{
         if($attach_letter){
 
-            if($attach_letter =~ /-letter$/){
-                $attach_letter=$COCOON_ATTACH_LETTER;
+            if($attach_letter =~ /-letter$/ || $attach_letter =~ /-vim$/){
+               $attach_letter = $COCOON_ATTACH_LETTER;
             }
             elsif(! -f $attach_letter){
                 die "Letter file not found: $attach_letter"
@@ -140,18 +148,23 @@ sub cocoon {
             }
 
             if($attach_letter){
-                my ($FH, $input);
-                unless(open $FH, '>', $attach_letter) {
-                    die "\nUnable to create $attach_letter\n";
+                if($vim){
+                    `touch $attach_letter`;
+                     $res = system("vim $attach_letter");
+                }else{
+                    my ($FH, $input);
+                    unless(open $FH, '>', $attach_letter) {
+                        die "\nUnable to create $attach_letter\n";
+                    }                
+                    print "You are editing a letter for a NEW cocoon archive: $archive\n";
+                    print "To finish typing finish with an '\\0' as the last line:\n";
+                    print "-" x 80, "\n";       
+                    while(  $input = <STDIN> ) {
+                        chomp($input); last if $input eq "\\0";
+                        print $FH "$input\n";              
+                    }
+                    close $FH;
                 }
-                print "You are editing a letter for a NEW cocoon archive: $archive\n";
-                print "To finish typing finish with an '\\0' as the last line:\n";
-                print "-" x 80, "\n";       
-                while(  $input = <STDIN> ) {
-                    chomp($input); last if $input eq "\\0";
-                    print $FH "$input\n";              
-                }
-                close $FH;
                 $paths{$attach_letter}=$attach_letter; #attaching to path to appear first in archive.
             }
         }
@@ -159,14 +172,32 @@ sub cocoon {
         $res = system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
                             join(' ', sort(keys %paths))." ".
                             join(' ', sort(keys %curr)).
-                " | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
+                " | pv | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
         if($res){
             print "Action: $action failed! Err: $!\n";     
         }else{
             `rm $attach_letter` if $attach_letter eq $COCOON_ATTACH_LETTER;
             print "Action: $action Finished succesfully!\n";
-            print "Cocoon passcode: $cocoon\n";
+            print "Cocoon passcode: $cocoon\n";            
+            logToCnf($cocoon, $archive);
+            &printArchivingTook;
         }
+    }
+}
+sub printArchivingTook {
+    $BACKUP_END=`date '+%F %T'`;
+    my $out =  `dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END"`;
+    $out =~ s/^0 hours and //;
+    $out =~ s/^0 minutes //;
+    print "Archiving took: $out";
+}
+sub logToCnf{
+    if(!$nolog){
+        my ($pgp, $archive) = @_; $BACKUP_END =`date '+%T'`;
+        my $stamp = "$BACKUP_START $BACKUP_END"; $stamp =~ s/\n//g;        
+        my $FH; unless (open $FH, '>>', $ENV{HOME}."/.config/enarch.log") {die "Unable to open ". $ENV{HOME}."/.config/enarch.log"}
+          print $FH "$stamp $pgp $archive\n";
+        close $FH;
     }
 }
 sub list {
@@ -297,14 +328,16 @@ Options:
                   Cocoons have the .cocoon file extension. Suitable for attaching to emails. 
                   You have to use an exting valid gpgpass, to create an cocoon, which can be shared over the internet.
                   Cocoon password will be provided upon archiving.
--letter         - Pipe in or type message to cocoon, for the archive. 
+-letter{=file}  - Pipe in or type message to cocoon, for the archive.
+-vim            - Open vim to enter the letter or message for the archive.
+-no-logging     - Archive action is logged automatically to ~/.config/enarch.log, use this option to dissable this.
 
 -h/? - This help file.
 
 Syntax:
 
 Archive is generated from the -name argument and only send to a target path not included in the archive.
-The -ggpgass argument must be given:
+The -ggpgass argument must be given for every action:
 
 $ enarch -gpgpass='XX-XX-XX-XX-XX-XX' -name="archive name" target/path /paths/{...}
 $ enarch -gpgpass='XX-XX-XX-XX-XX-XX' -postfix=off -name="archive name" -target=/path /paths {...}
@@ -330,6 +363,12 @@ $ pgppass=$(uvar ENARCH_PASSCODE);
 -- Example to create, restore cocoon based archives.
 $ enarch --cocoon=XX-XX-XX --name='my_attachments' --f=Docs/file1.doc --f=Docs/file2.doc
 $ enarch --cocoon=XX-XX-XX --name='my_attachments' --restore -f=Docs/file2.doc
+--
+-- Log format in ~/.config/enarch.log
+Use --no-logging to dissable logging
+Format:
+[YYYY-MM-DD HH:MM:SS{started}] [HH:MM:SS{ended}]:[gpg code]:[target/name]
+
 --
 Notice:
  
