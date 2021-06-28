@@ -7,38 +7,73 @@ DATE=$(date +%Y%m%d)
 BACKUP_FILE="$THIS_MACHINE-$DATE.$EXT_ENC"
 BACKUP_INDEX="$THIS_MACHINE-$DATE.$EXT_LST"
 BACKUP_START=`date +%F%t%T`
+TARGET="/mnt/$DEST_SERVER"
 
-echo "Your are about to backup '$HOME' to $BACKUP_FILE" "please enter $this_machine's sudo password ->"
-sudo sshfs "$USER@$DEST_SERVER:backups" /mnt/$DEST_SERVER -o allow_other 
+if [[ ! -z "$1" ]] 
+then
+    TARGET=$1    
+    if [[ ! -d "$TARGET" ]] 
+    then
+        echo -e "\nTarget doesn't exits: $TARGET"
+        echo -e "Available Media:"
+        find /media/$USER -maxdepth 2 -type d -print 
+        #ls -lr "/media/$USER" |  awk '! /^total|\./ {print}';
+        echo -e "\nAvailable Mounts:"
+        #ls -lr "/mnt/"|  awk '! /^total|\./ {print}';
+        find /mnt/ -maxdepth 2 -type d -print 
+        exit 1;
+    else
+        IS_LOCAL_MOUNT=1
+        DEST_SERVER=$THIS_MACHINE
+    fi    
+fi
+if [ -z $IS_LOCAL_MOUNT ]
+then
+    echo -e "Your are about to remote backup '$HOME' to $BACKUP_FILE" "please enter $this_machine's sudo password ->";
+    sudo sshfs "$USER@$DEST_SERVER:backups" $TARGET -o allow_other
+else
+    echo "Your are about to backup '$HOME' to $TARGET/$BACKUP_FILE"
+fi
 
-function backup () {
-    
-echo "Creating /mnt/$DEST_SERVER/$BACKUP_FILE"
+function backup () {    
+echo "Creating $TARGET/$BACKUP_FILE"
 pushd $HOME
+
+#################################################################################################
 tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
 $DIRECTORIES $WILDFILES | \
-gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > /mnt/$DEST_SERVER/$BACKUP_FILE 2>&1 ;  
+gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+#################################################################################################
+[[ $? != 0 ]] && exit $?;
+
 echo '#########################################################################'; 
-ls -lah "/mnt/$DEST_SERVER/$BACKUP_FILE"; 
-df -h "/mnt/$DEST_SERVER/$BACKUP_FILE";
+ls -lah "$TARGET/$BACKUP_FILE"; 
+df -h "$TARGET/$BACKUP_FILE";
 #Remove older backups
-find /mnt/$DEST_SERVER/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
-find /mnt/$DEST_SERVER/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
+find $TARGET/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
+find $TARGET/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
 echo '#########################################################################'; 
-echo "Backup has finished for: $USER@$DEST_SERVER:backups/mnt/$DEST_SERVER/$BACKUPFILE"
+echo "Backup has finished for: $USER@$DEST_SERVER $TARGET/$BACKUPFILE"
 echo "Creating contents list file, please wait..."
-gpg -q --decrypt --batch --passphrase $GPG_PASS "/mnt/$DEST_SERVER/$BACKUP_FILE" | \
-tar -Jt | pv | xz -9e -c > /mnt/$DEST_SERVER/$BACKUP_INDEX; 
+
+#################################################################################################
+gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
+tar -Jt | pv | xz -9e -c > $TARGET/$BACKUP_INDEX
+#################################################################################################
+
 BACKUP_END=`date +%F%t%T`;
 echo "Backup started: $BACKUP_START"
 echo "Backup ended  : $BACKUP_END"
 echo -n "Backup took: ";
 dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END";
-popd
+popd > /dev/null
 }
+
 
 ##
 backup 
-echo "done with backup " `date`", have a nice day!"
+echo -e "\nDone with backup on " `date`", have a nice day!"
 
-# This file originated from https://github.com/wbudic/B_L_R_via_sshfs
+exit 0;
+
+# This script originated from https://github.com/wbudic/B_L_R_via_sshfs
