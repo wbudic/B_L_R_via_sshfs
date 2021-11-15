@@ -71,7 +71,6 @@ echo "No backup file has been found!"
 exit;
 fi
 
-
 if [[ "." = "$SRC_DIR" ]]
 then
 	echo "Error, you are in the backup source directory: $PWD!"
