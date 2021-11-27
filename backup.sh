@@ -41,7 +41,7 @@ pushd $HOME
 
 #################################################################################################
 tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
-$DIRECTORIES $WILDFILES | \
+$DIRECTORIES $WILDFILES | pv -N "Status" -t -b -e -r | \
 gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
 #################################################################################################
 [[ $? != 0 ]] && exit $?;
@@ -58,7 +58,7 @@ echo "Creating contents list file, please wait..."
 
 #################################################################################################
 gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
-tar -Jt | pv | xz -9e -c > $TARGET/$BACKUP_INDEX
+tar -Jt | pv -N "Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
 #################################################################################################
 
 BACKUP_END=`date +%F%t%T`;

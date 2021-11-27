@@ -84,14 +84,14 @@ then
 	read -p "Are you sure you want to proceed? (Answer Yes/No): " rep; 
 	if [[ $rep =~ ^Y|^y ]]
 	then
-          gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | tar -Jxv $LA1 $LA2 $LA3 $LA4 $LA5; 
+          gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | pv -N "Status" | tar -Jxv $LA1 $LA2 $LA3 $LA4 $LA5; 
 	else
 	     echo "Restore has been skipped.";
 	     exit 1;
 	fi
 else 
 echo "Restoring files from $LST_ARG..."
-gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | tar xvJ --files-from $LST_ARG $LA1 $LA2 $LA3 $LA4 $LA5; 
+gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | pv -N "Status" | tar xvJ --files-from $LST_ARG $LA1 $LA2 $LA3 $LA4 $LA5; 
 echo -e "done with restore from:\n $RESTORE_FILE\nOn:" `date` ", have a nice day!"
 fi
 
