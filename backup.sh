@@ -4,7 +4,7 @@ SRC_DIR=`dirname "$0"`
 . $SRC_DIR/backup.config
 #
 DATE=$(date +%Y%m%d)
-BACKUP_FILE="$THIS_MACHINE-$DATE.$EXT_ENC"
+BACKUP_FILE="backups/$THIS_MACHINE-$DATE.$EXT_ENC"
 BACKUP_INDEX="$THIS_MACHINE-$DATE.$EXT_LST"
 BACKUP_START=`date +%F%t%T`
 TARGET="/mnt/$DEST_SERVER"
@@ -29,8 +29,9 @@ then
 fi
 if [ -z $IS_LOCAL_MOUNT ]
 then
-    echo -e "Your are about to remote backup '$HOME' to $BACKUP_FILE" "please enter $this_machine's sudo password ->";
-    sudo sshfs "$USER@$DEST_SERVER:backups" $TARGET -o allow_other
+    echo -e "Your are about to remote backup '$HOME' to $BACKUP_FILE";
+    sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other
+    [[ $? -eq 1 ]] && exit 1
 else
     echo "Your are about to backup '$HOME' to $TARGET/$BACKUP_FILE"
 fi
