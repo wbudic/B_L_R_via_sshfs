@@ -62,10 +62,11 @@ git clone https://github.com/wbudic/B_L_R_via_sshf
 
 ## Configuration
 
-Create a mount point, ever once before running any oth scripts.
+Create a mount point, ever once before running any other scripts.
 
 ```bash
 sudo mkdir /mnt/{REMOTE_SERVER_ALIAS_OR_IP}
+sudo chown {user} /mnt/{REMOTE_SERVER_ALIAS_OR_IP}
 ```
 
 It is recommended to use an alias in the script. Which is set by modifying your **/etc/hosts** file. And by assigning the remote destination IP address to an alias.
@@ -79,9 +80,23 @@ It is recommended to use an alias in the script. Which is set by modifying your 
  * Make also further changes in the config file as necessary, depending on your system.
  * Update and change directories in the **backup.sh** script, to suit your home directory.
 
+ ### Auto Mounting SSH for SSHFS
+
+Following are steps required to enable automatic user trust with an remote server and your local machine being backed up.
+This is required step if running the backup as a scheduled cron job.
+
+* Make and obtain an local public key. sftp it to {user}@{remote or IP}/.ssh
+  * cd ~/.ssh; ssh-keygen -t rsa.
+  * sftp {user}@{remote or IP}/.ssh; put id_rsa.pub
+* ssh into remote, ssh {user}@{remote or IP}/.ssh, and add to trusted hosts.
+  * cat id_rsa.pub >> authorized_keys
+  * chmod 600 authorized_keys
+
+
+
 ## Running
 
-./**backup.sh** can be called from any directory.
+The **backup.sh** can be called from any directory. Usually an alias can be used to start the backup.
 
 To restore home root directory is required or an temporary one, with or without an list of files to extract.
 Files then can be observed or moved once restored, to desired location.
