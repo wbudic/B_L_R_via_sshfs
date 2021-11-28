@@ -5,6 +5,7 @@ The backup is directly over ssh created, is encoded and compressed on the remote
 It is a modifiable, selective backup system, where known application and none required meta data is skipped.
 Thus saving you space and backup and restore time, by at least %30.
 
+![Backup System](backup_process.png)
 ## Utilities here provided
 
 Scripts: backup.sh, list.sh, restore.sh, enarch.pl
@@ -64,7 +65,7 @@ git clone https://github.com/wbudic/B_L_R_via_sshf
 
 Create a mount point, ever once before running any other scripts.
 
-```bash
+```sh
 sudo mkdir /mnt/{REMOTE_SERVER_ALIAS_OR_IP}
 sudo chown {user} /mnt/{REMOTE_SERVER_ALIAS_OR_IP}
 ```
@@ -73,14 +74,29 @@ It is recommended to use an alias in the script. Which is set by modifying your 
 
 * Update **backup.config** to this remote server alias, to read:
 
-  ```bash
+  ```sh
   DEST_SERVER={REMOTE_SERVER_ALIAS_OR_IP}
   ```
 
- * Make also further changes in the config file as necessary, depending on your system.
- * Update and change directories in the **backup.sh** script, to suit your home directory.
+* Make also further changes in the config file as necessary, depending on your system.
+* Update and change directories in the **backup.sh** script, to suit your home directory.
+* Update and configure **backup.config** to suit your system.
+  * By default only the home directory is backed up, or paths has access to.
 
- ### Auto Mounting SSH for SSHFS
+  ```sh
+    sudo mkdir /mnt/nuc; sudo chown user /mnt/nuc
+  ```
+
+  * To include or exclude further directories, extensions
+    * WILDFILES variable  is the includes found files by file extension or wild card set paths.
+  * Change and keep somewhere safe the GPG_PASS
+    * This can be password can be created using:
+    
+    ```sh 
+    ./enarch.pl -gpggenerate
+    ```
+
+### Auto Mounting SSH for SSHFS
 
 Following are steps required to enable automatic user trust with an remote server and your local machine being backed up.
 This is required step if running the backup as a scheduled cron job.
@@ -92,7 +108,37 @@ This is required step if running the backup as a scheduled cron job.
   * cat id_rsa.pub >> authorized_keys
   * chmod 600 authorized_keys
 
+### Setting up MEGA Cloud (Optional)
 
+Cloud clients are mounted to connect to the server on the internet. See MEGA.nz for further instructions, and for free account.
+The data is OpenSSL encrypted and stored there, so don't loose the password and key for over there.
+
+How it work you start on your server, a mega client connection to the cloud, and issue an mounted synch to the ~/backups directory.
+Each type backup is run and has completed to the server it will slowly sync and mirror the directory on the cloud.
+
+
+```sh
+$ mega-cmd
+login your@email.com xxxxxxxxxxxxxxxxxxxxxxxxx
+your@email.com:/$ sync /home/will/backups /backups 
+your@email.com:/$ tree
+ backups
+    ├── last_bck_before_mint_20_install
+    │   ├── nomad-20211002.lst.xz
+    │   └── nomad-20211002.tar.xz.enc
+    ├── releases
+    │   ├── LifeLog-master-1-6.zip
+    │   └── thttpd_dev_1_8.tar.7z
+    ├── metabox-20180517.7z
+    ├── metabox-20190806.dev.tar.gz
+    ├── metabox-.tar.gz
+    ├── nomad-20210618.lst
+    ├── nomad-20211127.tar.xz.enc
+    ├── nomad-20211128.lst.xz
+    ├── nomad-20211128.tar.xz.enc
+    ├── nomad-20211129.tar.xz.enc
+    └── test.txt
+```
 
 ## Running
 
