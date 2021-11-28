@@ -5,9 +5,12 @@ SRC_DIR=`dirname "$0"`
 #
 DATE=$(date +%Y%m%d)
 BACKUP_FILE="backups/$THIS_MACHINE-$DATE.$EXT_ENC"
-BACKUP_INDEX="$THIS_MACHINE-$DATE.$EXT_LST"
+BACKUP_INDEX="backups/$THIS_MACHINE-$DATE.$EXT_LST"
 BACKUP_START=`date +%F%t%T`
 TARGET="/mnt/$DEST_SERVER"
+if [[ -z "$BACKUP_VERBOSE" ]]; then
+BACKUP_VERBOSE=$BACKUP_VERBOSE_OUTPUT
+fi
 
 if [[ ! -z "$1" ]] 
 then
@@ -29,38 +32,64 @@ then
 fi
 if [ -z $IS_LOCAL_MOUNT ]
 then
+
     echo -e "Your are about to remote backup '$HOME' to $BACKUP_FILE";
-    sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other
+
+    if [ `stat -c%d "$TARGET"` != `stat -c%d "$TARGET/.."` ]; then
+        echo "$TARGET is mounted"
+    else
+        sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other
+    fi    
     [[ $? -eq 1 ]] && exit 1
 else
     echo "Your are about to backup '$HOME' to $TARGET/$BACKUP_FILE"
 fi
 
 function backup () {    
-echo "Creating $TARGET/$BACKUP_FILE"
+echo "Starting creating $TARGET/$BACKUP_FILE"
 pushd $HOME
 
 #################################################################################################
-tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
-$DIRECTORIES $WILDFILES | pv -N "Status" -t -b -e -r | \
-gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
+ tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
+ $DIRECTORIES $WILDFILES | pv -N "Status" -t -b -e -r | \
+ gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+else
+ tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
+ $DIRECTORIES $WILDFILES | \
+ gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+fi
 #################################################################################################
 [[ $? != 0 ]] && exit $?;
 
 echo '#########################################################################'; 
 ls -lah "$TARGET/$BACKUP_FILE"; 
+if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_FILE" | awk '{print $5}') -eq 0 ]]; then
+echo "BACKUP FAILED FOR $TARGET/$BACKUP_FILE!!!"
+exit $?
+fi 
 df -h "$TARGET/$BACKUP_FILE";
 #Remove older backups
-find $TARGET/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
-find $TARGET/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
+find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
+find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
 echo '#########################################################################'; 
-echo "Backup has finished for: $USER@$DEST_SERVER $TARGET/$BACKUPFILE"
+echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
 echo "Creating contents list file, please wait..."
 
 #################################################################################################
-gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
-tar -Jt | pv -N "Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
+if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
+ gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
+ tar -Jt | pv -N "Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
+else
+ gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
+ tar -Jt | xz -9e -c > $TARGET/$BACKUP_INDEX
+fi
 #################################################################################################
+
+if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
+echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
+exit $?
+fi 
 
 BACKUP_END=`date +%F%t%T`;
 echo "Backup started: $BACKUP_START"

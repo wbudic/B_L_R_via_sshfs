@@ -59,10 +59,10 @@ done
 if [ -z $IS_LOCAL_MOUNT ]
 then
 echo -e "\nYour are about to restore from '$DEST_SERVER'" "Please enter $THIS_MACHINE's sudo password ->"
-sudo sshfs "$USER@$DEST_SERVER:backups" $TARGET -o allow_other 
+sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other 
 fi
 
-RESTORE_FILE=$(ls $TARGET/$THIS_MACHINE-*.$EXT_ENC|tail -n 1)
+RESTORE_FILE=$(ls $TARGET/backups/$THIS_MACHINE-*.$EXT_ENC|tail -n 1)
 if [[ -f $RESTORE_FILE ]] 
 then
 echo "Located backup file is -> $RESTORE_FILE"

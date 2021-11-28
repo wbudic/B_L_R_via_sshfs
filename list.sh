@@ -35,9 +35,11 @@ fi
 if [ -z $IS_LOCAL_MOUNT ]
 then
 echo "Please enter $THIS_MACHINE's sudo password ->"
-sudo sshfs $USER@$DEST_SERVER:backups /mnt/$DEST_SERVER -o allow_other > /dev/null 2>&1
+sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
 fi
-sel=$(xzcat $TARGET/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi)
+echo -e "Listing from from $TARGET/backups:"
+ls -lah $TARGET/backups/$THIS_MACHINE-*.$EXT_LST
+sel=$(xzcat $TARGET/backups/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi)
 [[ -z $sel ]] &&  exit;
 [[ -z $1   ]] && rm restore.lst > /dev/null;
 
