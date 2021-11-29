@@ -140,6 +140,12 @@ your@email.com:/$ tree
     └── test.txt
 ```
 
+* **IMPORTANT NOTICE** **!!!** MEGAcmd can be initially used but should be avoided for scripting.
+  * ``` /backups ``` directory must exist as an REMOTEPATH in your account on the MEGA cloud, easy to create with after mega-login with ```mega-mkdir backups```.
+  * DO NOT mega-sync ~/home/{user}/backups /backups from multiple locations or different computers, including your home!  
+    * Guess what will (can) happen during a long backup?
+    * Target or the physical DEST_SERVER, should only be issued with an: ``` mega-sync ~/home/{user}/backups /backups ```    
+
 ## Running
 
 The **backup.sh** can be called from any directory. Usually an alias can be used to start the backup.
