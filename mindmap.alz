@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<heimer-mind-map version="3.0.0">
+ <color g="189" r="186" b="182"/>
+ <edge-color g="0" r="0" b="0"/>
+ <grid-color g="160" r="160" b="164"/>
+ <edge-width>2000</edge-width>
+ <font-family overline="0" strike-out="0" italic="0" weight="50" underline="0" bold="0">Ubuntu</font-family>
+ <text-size>11000</text-size>
+ <corner-radius>5000</corner-radius>
+ <graph>
+  <node w="200000" x="-334529" y="-68001" h="75000" index="6">
+   <text>list.sh | restore.sh</text>
+   <color g="255" r="255" b="255"/>
+   <text-color g="0" r="0" b="0"/>
+  </node>
+  <node w="200000" x="-3935" y="31373" h="75000" index="3">
+   <text>MEGA.nz/Cloud</text>
+   <color g="77" r="203" b="104"/>
+   <text-color g="0" r="0" b="0"/>
+  </node>
+  <node w="200000" x="-2951" y="-201813" h="75000" index="1">
+   <text>NUC/Server</text>
+   <color g="228" r="247" b="118"/>
+   <text-color g="0" r="0" b="0"/>
+  </node>
+  <node w="200000" x="-333545" y="-204653" h="75000" index="0">
+   <text>LAPTOP/PC</text>
+   <color g="247" r="109" b="193"/>
+   <text-color g="0" r="0" b="0"/>
+  </node>
+  <edge index0="6" index1="0" reversed="0" arrow-mode="0"/>
+  <edge index0="1" index1="6" reversed="0" arrow-mode="0"/>
+  <edge index0="1" index1="3" reversed="0" arrow-mode="0">
+   <text>sync ~/backups /backups</text>
+  </edge>
+  <edge index0="0" index1="1" reversed="0" arrow-mode="0">
+   <text>backup.sh</text>
+  </edge>
+ </graph>
+ <layout-optimizer min-edge-length="100000" aspect-ratio="1000"/>
+</heimer-mind-map>
