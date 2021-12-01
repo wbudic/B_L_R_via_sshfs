@@ -34,8 +34,8 @@ then
 fi
 if [ -z $IS_LOCAL_MOUNT ]
 then
-echo "Please enter $THIS_MACHINE's sudo password ->"
-sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
+echo "Accessing  -> $TARGET"
+sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
 fi
 echo -e "Listing from from $TARGET/backups:"
 ls -lah $TARGET/backups/$THIS_MACHINE-*.$EXT_LST
