@@ -2,7 +2,7 @@
 use strict;
 use sigtrap qw/die normal-signals/;
 
-my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon, $attach_letter, $vim, $nolog);
+my ($gpgpass,$target,$name,$archive,$action,$postfix,$fuzzy,$showfull,$cocoon, $attach_letter, $vim, $nolog, $cocodb, $alias);
 my $host   =`uname -n`;
 my $date   = `date "+%Y%m%d"`;
 my $ext    = 'tar.gz.enc';
@@ -25,7 +25,9 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(name)/i)        {$name = $v;}
     elsif($a =~ m/^-+.*(letter)/i)      {$attach_letter = $v;next}
     elsif($a =~ m/^-+.*(vim)/i)         {$attach_letter = $v;$vim = 1;next}
-    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}    
+    elsif($a =~ m/^-+.*(cocodb)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v; $cocodb="cocoon.db";next}
+    elsif($a =~ m/^-+.*(add-to-db)/i)   {$alias=lc $v;next}
+    elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}
     elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(fuzzy)|(fzf)/i) {$action='LIST'; $fuzzy=1; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(restore)/i)     {$action='RESTORE'}
@@ -57,7 +59,10 @@ foreach my $a (@ARGV){
 }
 
 
-if($cocoon){&cocoon; exit 1;}
+if($cocoon){
+   if($cocodb){exit 1 if not &cocoonDB}
+   &cocoon; exit 1;
+}
 elsif($action ne 'HELP'){
     if(!$target){
         print "Error: Target directory not specified!\nMaybe issue [$0 -?] for help.\n"; exit 2;
@@ -77,18 +82,19 @@ else{
     print "No action to perform detected.\n";
 }
 
-
+# Plain archive.
 sub archive {
     print "Generating archive: $archive\n";
     print "Passcode: $gpgpass\n";    
     system("tar -cvzi ".join(' ', sort(keys %exclds))." ".
                         join(' ', sort(keys %paths))." ".
                         join(' ', sort(keys %curr)).
-           "| pv | gpg -c --no-symkey-cache --batch --passphrase $gpgpass > $archive 2>&1");    
+           "| pv -N 'Status' -t -b -e -r | gpg -c --no-symkey-cache --batch --passphrase $gpgpass > $archive 2>&1");    
     print "Done generating: $archive\n";
     logToCnf($gpgpass, $archive);
     &printArchivingTook;
 }
+# An cocoon archive, must have specific cocoon password to which also an letter can be attached.
 sub cocoon {
     if(!$name){
         if($cocoon =~ m/.*-cocoon$/){
@@ -172,7 +178,7 @@ sub cocoon {
         $res = system("XZ_OPT=-9; tar -Jcvi ".join(' ', sort(keys %exclds))." ".
                             join(' ', sort(keys %paths))." ".
                             join(' ', sort(keys %curr)).
-                " | pv | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
+                " | pv -N 'Cocooning' -t -b -e -r | gpg -c --no-symkey-cache --batch --passphrase $cocoon > $archive");
         if($res){
             print "Action: $action failed! Err: $!\n";     
         }else{
@@ -302,6 +308,49 @@ sub cocoonPassword {
     return $code;
 }
 
+sub cocoonDB {
+    my %data = (); 
+    if(-f $cocodb){
+        open (my $fh, '<', $cocodb);
+         $/=undef;
+         my $content = <$fh>;         
+         my @ln = $content =~ m/(.*)\n/g;
+         foreach (@ln){
+             my @p = split /=/, $_;             
+             $data{$p[0]}=$p[1] if scalar @p > 0;
+             
+         }
+         close $fh;
+    }    
+
+    if($action eq 'LIST'){
+        foreach (sort keys %data) {
+            print $_,'=', $data{$_}, "\n";
+        }
+        exit 2;
+    }
+    
+    if($alias){ #if $alias is set we are adding/modifying the db.     
+           my %v =  map { $_ => 1 } values %data;
+           $data{$alias} = &gpgPassCodeGenerate for exists($v{$_});
+           open(my $fh, '>', $cocodb) or die "Couldn't write to $cocodb, $!";
+           foreach my $k(sort keys %data) {
+            print $fh $k,'=', $data{$k}, "\n";
+           }
+           close $fh;
+           $cocoon=$data{$alias} if $cocoon;
+    }elsif($cocoon){ #the alias|email is assigned to the $cocoon variable instead of an passcode.
+       if(not $cocoon=$data{$cocoon}){
+           print "Error alias|email of -> $cocoon not found on system!";
+           exit 0;
+       }
+       if(not $name){
+          print $cocoon;
+          exit 1;
+       } 
+    }#not last assigned is returned in perl, which is the $cocoon value, a pass code.
+}
+
 
 sub printHelp {foreach(<DATA>){print $_}}
 __END__
@@ -331,6 +380,7 @@ Options:
 -letter{=file}  - Pipe in or type message to cocoon, for the archive.
 -vim            - Open vim to enter the letter or message for the archive.
 -no-logging     - Archive action is logged automatically to ~/.config/enarch.log, use this option to dissable this.
+-cocodb={email} - Interact with cocoondb for listing, adding, obtaining a stored coocon pass code (see more about bellow).
 
 -h/? - This help file.
 
@@ -368,6 +418,15 @@ $ enarch --cocoon=XX-XX-XX --name='my_attachments' --restore -f=Docs/file2.doc
 Use --no-logging to dissable logging
 Format:
 [YYYY-MM-DD HH:MM:SS{started}] [HH:MM:SS{ended}]:[gpg code]:[target/name]
+
+-- Cocoon DB Interaction
+   A special ~/.config/cocoons.db file is kept allowing to store cocoon passwords.
+   - To list available entries
+   $ enarch --cocodb --list
+   - To add entry alias name or email.
+   $ enarch --cocodb --add-to-db=alias|email
+   - To read cocoon passcode entry for an alias or email.
+   $ enarch --cocodb=alias|email
 
 --
 Notice:
