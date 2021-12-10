@@ -11,6 +11,7 @@ my $ext    = 'tar.gz.enc';
 my %paths  = ();
 my %exclds = ();
 my %curr   = ();
+my %data = (); 
 my @DIGITS = "1234567890ABCDEFGHIJKLMWENCARCHIVE" =~ m/./g;
 my $DEBUG  = 0;
 my $COCOON_ATTACH_LETTER = 'cocoon_attached_letter.txt';
@@ -31,7 +32,7 @@ foreach my $a (@ARGV){
     elsif($a =~ m/^-+.*(coco.*db)/i)    {$action='ARCHIVE' if !$action; $alias=$v; $cocodb = $ENV{HOME}."/.config/cocoon.db";next}
     elsif($a =~ m/^-+.*(add-to-db)/i)   {$action='REGISTER'; $add=1;$alias=lc $v;next}
     elsif($a =~ m/^-+.*(cocoon)/i)      {$action='ARCHIVE' if !$action; $cocoon=$v;next}
-    elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $showfull=1 if $v eq 'full'}
+    elsif($a =~ m/^-+.*(list)/i)        {$action='LIST'; $action="LIST"; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(fuzzy)|(fzf)/i) {$action='LIST'; $fuzzy=1; $showfull=1 if $v eq 'full'}
     elsif($a =~ m/^-+.*(extract)/i)     {$action='RESTORE';next}    
     elsif($a =~ m/^-+.*(restore)/i)     {$action='RESTORE';next}
@@ -71,9 +72,10 @@ sub strip_trailing{
     return $r;
 }
 
-if($cocoon || $cocodb){
-   if($cocodb){&cocoonDB; exit 1 if not $cocoon}
-   &cocoon if $cocoon; exit 1;
+&cocoonDB if $cocodb;
+if($cocoon){   
+   &cocoon;
+   exit 1;
 }
 elsif($action ne 'HELP'){
     if(!$target){
@@ -117,17 +119,17 @@ sub cocoon {
         print "Error: Cocoon name not specified! action is $action\n"; 
         exit 2;
     }else{         
-        if($name){$archive = "$name.cocoon"}else{$archive = $target}
+        if($name){$archive = "./$name.cocoon"}else{$archive = $target}
         $gpgpass = $cocoon if not $gpgpass;  
     }
     my $res;
     $cocoon =cocoonPassword($gpgpass);
     if($action eq "LIST"){
         if ($showfull) {$showfull="-Jtv"}else{$showfull="-Jt"}
-        if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
+        if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};        
            $res = system("gpg --no-verbose --decrypt --batch --passphrase $cocoon $archive 2>/dev/null | pv -N 'Obtaining Listing' | tar $fuzzy ");    
         if($res){
-            print "Error: Failed to list archive: $archive. Cocoon password suplied: $cocoon\n";
+            print "Error: Failed to list archive: '$archive'.\n Cocoon password suplied: $cocoon alias:($alias): ".$data{$alias}."\n";
         }else{
             print "Listed archive: $archive\n";
         }
@@ -344,7 +346,7 @@ sub cocoonPassword {
 }
 
 sub cocoonDB {
-    my %data = (); 
+
     if(-f $cocodb){
         open (my $fh, '<', $cocodb);
          $/=undef;
@@ -358,7 +360,7 @@ sub cocoonDB {
          close $fh;
     }    
 
-    if($action eq 'LIST' &&not $target ){
+    if($action eq 'LIST' && (not $target and not $name) ){
         foreach (sort keys %data) {
             print $_,'=', $data{$_}, "\n";
         }
@@ -366,6 +368,12 @@ sub cocoonDB {
     }
     
     if($alias){ #if $alias is set we are adding/modifying the db.         
+
+        if($action eq 'LIST'){
+            $cocoon = $data{$alias};
+            if (not $cocoon){print "Alias not found registered:$alias";exit 2}
+            return;
+        }
         if(!$add && $action eq 'RESTORE'){
             $cocoon = $data{$alias};
             return undef if $cocoon;            
