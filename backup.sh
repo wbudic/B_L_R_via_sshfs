@@ -94,15 +94,16 @@ fi
 BACKUP_END=`date +%F%t%T`;
 echo "Backup started: $BACKUP_START"
 echo "Backup ended  : $BACKUP_END"
-echo -n "Backup took: ";
-dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END";
+echo "Backup took   : ";
+dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END" \
+| awk '{gsub(/^0 hours and/,"");}1' | awk '{gsub(/^0 minutes\s*/,"");}1'
 popd > /dev/null
 }
 
 
 ##
 backup 
-echo -e "\nDone with backup on " `date`", have a nice day!"
+echo -e "\nDone with backup of $HOME on " `date`", have a nice day!"
 
 exit 0;
 
