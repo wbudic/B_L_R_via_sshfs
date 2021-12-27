@@ -52,7 +52,7 @@ pushd $HOME
 #################################################################################################
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
  tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- $DIRECTORIES $WILDFILES | pv -N "Status" -t -b -e -r | \
+ $DIRECTORIES $WILDFILES | pv -N "Backup Status" -t -b -e -r | \
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
 else
  tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
@@ -79,7 +79,7 @@ echo "Creating contents list file, please wait..."
 #################################################################################################
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
  gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
- tar -Jt | pv -N "Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
+ tar -Jt | pv -N "Backup Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
 else
  gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
  tar -Jt | xz -9e -c > $TARGET/$BACKUP_INDEX
