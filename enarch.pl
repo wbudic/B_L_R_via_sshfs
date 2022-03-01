@@ -1,5 +1,6 @@
 #!/bin/perl
 use strict;
+use warnings;
 use sigtrap qw/die normal-signals/;
 use File::stat;
 
@@ -17,7 +18,7 @@ my $DEBUG  = 0;
 my $COCOON_ATTACH_LETTER = 'cocoon_attached_letter.txt';
 my $BACKUP_START=`date '+%F %T'`;
 my $BACKUP_END;
-$ENV{HOME}='/home/will' if not $ENV{HOME};
+local $ENV{HOME}='/home/will' if not $ENV{HOME};
 
 foreach my $a (@ARGV){
     my $v = $a; $v =~ s/^-+.*[=:]//;
@@ -232,7 +233,7 @@ sub printArchivingTook {
     my $out =  `dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END"`;
     $out =~ s/^0 hours and //;
     $out =~ s/^0 minutes //;
-    print "Archiving took: $out";
+    print "Archiving took: $out"; return;
 }
 sub logToCnf{
     if(!$nolog){
@@ -241,7 +242,7 @@ sub logToCnf{
         my $FH; unless (open $FH, '>>', $ENV{HOME}."/.config/enarch.log") {die "Unable to open ". $ENV{HOME}."/.config/enarch.log"}
           print $FH "$stamp $pgp $archive\n";
         close $FH;
-    }
+    }return;
 }
 sub list {
     #Let's try to find the most current, so with passcode also matches.
@@ -262,7 +263,7 @@ sub list {
         if ($fuzzy){$fuzzy = "$showfull | fzf --multi --no-sort --sync"}else{$fuzzy = $showfull};
         system("gpg --no-verbose --decrypt --batch --passphrase $gpgpass $archive | tar $fuzzy 2>&1");    
         print "Listed archive: $archive\n";
-    }
+    }return;
 }
 sub restore {
     if($postfix && $postfix ne 'off'){
@@ -282,7 +283,7 @@ sub restore {
            my $files = join(' ', sort(keys %curr));
            system("gpg --decrypt --batch --passphrase $gpgpass $archive | tar xvz $files");
        }
-    }    
+    }return;    
 }
 
 sub gpgPassCodeGenerate {
@@ -290,7 +291,7 @@ sub gpgPassCodeGenerate {
     foreach(1..8){$code .= &rc . '-'}
     $code =~ s/(-$)//;
     return $code;
-}sub rc {sprintf ("%s%s", $DIGITS[rand(28)], $DIGITS[rand(28)]);}
+}sub rc {sprintf ("%s%s", $DIGITS[rand(28)], $DIGITS[rand(28)]);return}
 
 sub gpgPassCodeCheck {
     my ($arg, $pass) = @_;
@@ -400,11 +401,11 @@ sub cocoonDB {
        }       
        print $target, " <-- $action gpgpass[", $cocoon,"]\n";  
        exit 1 if not $name and not $target       
-    }    
+    }return;    
 }
 
 
-sub printHelp {foreach(<DATA>){print $_}}
+sub printHelp {while(<DATA>){print $_}return;}
 __END__
 --------------------------------------------------------------------------------------------------------------
 Encode Archive Directories
