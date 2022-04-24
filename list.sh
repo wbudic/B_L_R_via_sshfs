@@ -34,11 +34,17 @@ then
 fi
 if [ -z $IS_LOCAL_MOUNT ]
 then
-echo "Accessing  -> $TARGET"
-sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
+echo "Accessing  -> $USER@$DEST_SERVER"
+sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
 fi
+
+if ls -lah $TARGET/backups/$THIS_MACHINE-*.$EXT_LST ;
+then
 echo -e "Listing from from $TARGET/backups:"
-ls -lah $TARGET/backups/$THIS_MACHINE-*.$EXT_LST
+else
+echo -e "Exiting FAILED to access target backup directory!\n"
+exit 0
+fi
 sel=$(xzcat $TARGET/backups/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi)
 [[ -z $sel ]] &&  exit;
 [[ -z $1   ]] && rm restore.lst > /dev/null;
