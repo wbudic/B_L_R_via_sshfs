@@ -42,21 +42,22 @@ then
     fi    
     [[ $? -eq 1 ]] && exit 1
 else
-    echo "Your are about to backup '$HOME' to $TARGET/$BACKUP_FILE"
+    echo "Your are about to backup '$HOME' to $TARGET"
 fi
 
-function backup () {    
-echo "Starting creating $TARGET/$BACKUP_FILE"
+function DoBackup () {    
+echo "Started creating $TARGET/$BACKUP_FILE"
 pushd $HOME
+crontab -l>crontab.lst
 
 #################################################################################################
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
  tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- $DIRECTORIES $WILDFILES | pv -N "Backup Status" -t -b -e -r | \
+ $DIRECTORIES $WILDFILES crontab.lst | pv -N "Backup Status" -t -b -e -r | \
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
 else
  tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- $DIRECTORIES $WILDFILES | \
+ $DIRECTORIES $WILDFILES crontab.lst | \
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
 fi
 #################################################################################################
@@ -74,9 +75,9 @@ find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} +
 find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
 echo '#########################################################################'; 
 echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
-echo "Creating contents list file, please wait..."
 
 #################################################################################################
+echo "Creating contents list file, please wait..."
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
  gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
  tar -Jt | pv -N "Backup Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
@@ -102,9 +103,10 @@ popd > /dev/null
 
 
 ##
-backup 
+DoBackup 
 echo -e "\nDone with backup of $HOME on " `date`", have a nice day!"
-
 exit 0;
 
 # This script originated from https://github.com/wbudic/B_L_R_via_sshfs
+# Requirements:
+# sudo apt install sshfs gpg pv dateutils.ddiff
