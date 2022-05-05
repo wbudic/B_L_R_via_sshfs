@@ -1,49 +1,55 @@
 #!/bin/bash
-# Includes
+# Included backup.config is only to be modified.
 SRC_DIR=`dirname "$0"`
+if [[ -f ~/.config/backup.config ]]; then
+. ~/.config/backup.config
+else
 . $SRC_DIR/backup.config
+fi 
 #
 DATE=$(date +%Y%m%d)
-BACKUP_FILE="backups/$THIS_MACHINE-$DATE.$EXT_ENC"
-BACKUP_INDEX="backups/$THIS_MACHINE-$DATE.$EXT_LST"
+BACKUP_FILE="$BACKUP_DIRECTORY/$THIS_MACHINE-$DATE.$EXT_ENC"
+BACKUP_INDEX="$BACKUP_DIRECTORY/$THIS_MACHINE-$DATE.$EXT_LST"
 BACKUP_START=`date +%F%t%T`
-TARGET="/mnt/$DEST_SERVER"
-if [[ -z "$BACKUP_VERBOSE" ]]; then
-BACKUP_VERBOSE=$BACKUP_VERBOSE_OUTPUT
-fi
-
-if [[ ! -z "$1" ]] 
+# By default the backup goes to a mounting point target in the config file.
+TARGET=$1
+if [[ -z "$TARGET" ]] 
 then
-    TARGET=$1    
-    if [[ ! -d "$TARGET" ]] 
-    then
-        echo -e "\nTarget doesn't exits: $TARGET"
-        echo -e "Available Media:"
-        find /media/$USER -maxdepth 2 -type d -print 
-        #ls -lr "/media/$USER" |  awk '! /^total|\./ {print}';
-        echo -e "\nAvailable Mounts:"
-        #ls -lr "/mnt/"|  awk '! /^total|\./ {print}';
-        find /mnt/ -maxdepth 2 -type d -print 
-        exit 1;
-    else
-        IS_LOCAL_MOUNT=1
-        DEST_SERVER=$THIS_MACHINE
-    fi    
-fi
-if [ -z $IS_LOCAL_MOUNT ]
-then
-
-    echo -e "Your are about to remote backup '$HOME' to $BACKUP_FILE";
-
+    TARGET="/mnt/$DEST_SERVER"    
+    echo "Your are about to remote backup '$HOME' to $TARGET";
     if [ `stat -c%d "$TARGET"` != `stat -c%d "$TARGET/.."` ]; then
-        echo "$TARGET is mounted"
+        echo "Pass, $TARGET is already mounted."
     else
         sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other
     fi    
     [[ $? -eq 1 ]] && exit 1
-else
-    echo "Your are about to backup '$HOME' to $TARGET"
+else        
+    if [[ ! -d "$TARGET" ]] 
+    then
+        echo -e "\nTarget location doesn't exits: $TARGET"
+        echo -e "Available Media:"
+        find /media/$USER -maxdepth 2 -type d -print         
+        echo -e "\nAvailable Mounts:"
+        find /mnt/ -maxdepth 2 -type d -not -path '*/\.*' -print
+        exit 1
+    else
+        echo "Your are about to backup locally to $TARGET/$BACUP_DIRECTORY/$BACKUP_FILE"
+    fi
 fi
+
+if [[ ! -d "$TARGET/$BACKUP_DIRECTORY" ]]; then
+        echo -e "Target directoy doesn't exist: $TARGET/$BACKUP_DIRECTORY"
+        declare -i times=0
+        while true; do
+            read -p "Do you want it to be created ?" yn
+            case $yn in
+                [Yy]* ) mkdir $TARGET/$BACKUP_DIRECTORY; break;;
+                [Nn]* ) exit;;
+                * ) times+=1;let left=3-$times; echo -e "You made $times attempts have $left left.\nPlease answer [y]es or [n]o."; [[ $times > 2 ]] && exit 1;;
+            esac
+        done
+fi
+
 
 function DoBackup () {    
 echo "Started creating $TARGET/$BACKUP_FILE"
@@ -78,7 +84,7 @@ echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
 
 #################################################################################################
 echo "Creating contents list file, please wait..."
-if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
+if [[ $BACKUP_VERBOSE -eq 1 ]]; then
  gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
  tar -Jt | pv -N "Backup Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
 else
@@ -99,14 +105,11 @@ echo "Backup took   : ";
 dateutils.ddiff -f "%H hours and %M minutes %S seconds." "$BACKUP_START" "$BACKUP_END" \
 | awk '{gsub(/^0 hours and/,"");}1' | awk '{gsub(/^0 minutes\s*/,"");}1'
 popd > /dev/null
+echo -e "\nDone with backup of $HOME on " `date` ", have a nice day!"
 }
-
 
 ##
 DoBackup 
-echo -e "\nDone with backup of $HOME on " `date`", have a nice day!"
-exit 0;
+exit 0
 
 # This script originated from https://github.com/wbudic/B_L_R_via_sshfs
-# Requirements:
-# sudo apt install sshfs gpg pv dateutils.ddiff
