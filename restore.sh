@@ -1,7 +1,11 @@
 #!/bin/bash
 # Includes
 SRC_DIR=`dirname "$0"`
+if [[ -f ~/.config/backup.config ]]; then
+. ~/.config/backup.config
+else
 . $SRC_DIR/backup.config
+fi 
 #
 TARGET="/mnt/$DEST_SERVER"
 # LST_ARG=restore.lst and individual files to restore as arguments follow.
@@ -9,7 +13,7 @@ LST_ARG=$1;LA1=$2;LA2=$3;LA3=$4;LA4=$5;
 
 function showHelp () {
 echo -e "--------------------------------------------------------------------------------------------------------------"
-echo -e "Backup restore Utility\n\t This utility restores latest backup found in the target directory."
+echo -e "Backup restore Utility\n\t This utility restores latest backup found in an target directory."
 echo -e "The default settings or arguments are set in the backup.config file.\n And the list utility can be used for fast individual file slections. Before calling restore."
 echo -e "Other availabe command line options:"
 echo -e "-h|--help - For this help."
@@ -43,7 +47,7 @@ while [ ! -z "$1" ];do
                 find /mnt/ -maxdepth 2 -type d -print 
                 exit 1;
             else
-                IS_LOCAL_MOUNT=1
+                IS_LOCAL=1
                 DEST_SERVER=$THIS_MACHINE
                 LST_ARG=$2;LA1=$3;LA2=$4;LA3=$5;LA4=$6;
             fi 
@@ -56,7 +60,7 @@ shift
 done
 
 
-if [ -z $IS_LOCAL_MOUNT ]
+if [ -z $IS_LOCAL ]
 then
 echo -e "\nYour are about to restore from '$DEST_SERVER'" "Please enter $THIS_MACHINE's sudo password ->"
 sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other 
