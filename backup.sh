@@ -2,10 +2,11 @@
 # Included backup.config is only to be modified.
 SRC_DIR=`dirname "$0"`
 if [[ -f ~/.config/backup.config ]]; then
-. ~/.config/backup.config
+CONFIG_FILE="$HOME/.config/backup.config"
 else
-. $SRC_DIR/backup.config
+CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
+. $CONFIG_FILE
 #
 DATE=$(date +%Y%m%d)
 BACKUP_FILE="$BACKUP_DIRECTORY/$THIS_MACHINE-$DATE.$EXT_ENC"
@@ -52,7 +53,7 @@ fi
 
 
 function DoBackup () {    
-echo "Started creating $TARGET/$BACKUP_FILE"
+echo -e "Started creating $TARGET/$BACKUP_FILE   From Config:$CONFIG_FILE"
 pushd $HOME
 crontab -l>crontab.lst
 

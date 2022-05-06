@@ -2,14 +2,15 @@
 # Includes
 SRC_DIR=`dirname "$0"`
 if [[ -f ~/.config/backup.config ]]; then
-. ~/.config/backup.config
+CONFIG_FILE="$HOME/.config/backup.config"
 else
-. $SRC_DIR/backup.config
+CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
+. $CONFIG_FILE
 #
-TARGET="/mnt/$DEST_SERVER"
+TARGET="/mnt/$DEST_SERVER/$BACKUP_DIRECTORY"
 # LST_ARG=restore.lst and individual files to restore as arguments follow.
-LST_ARG=$1;LA1=$2;LA2=$3;LA3=$4;LA4=$5;
+LST_ARG=$1;
 
 function showHelp () {
 echo -e "--------------------------------------------------------------------------------------------------------------"
@@ -36,6 +37,7 @@ while [ ! -z "$1" ];do
           shift
           TARGET="$1"
           echo -e "Target directory set as: $TARGET"
+          [[ ! -d "$TARGET" ]] && "$TARGET=$BACKUP_DIRECTORY/$TARGET" && echo -e "Reseting to: $TARGET"
             if [[ ! -d "$TARGET" ]] 
             then
                 echo -e "\nTarget doesn't exits: $TARGET"
@@ -50,26 +52,29 @@ while [ ! -z "$1" ];do
                 IS_LOCAL=1
                 DEST_SERVER=$THIS_MACHINE
                 LST_ARG=$2;LA1=$3;LA2=$4;LA3=$5;LA4=$6;
-            fi 
-            break
+            fi            
           ;;
         *)
-        [[ $1 =~ ^-- ]] && echo -e "Unknow option $1" 
-   esac
-shift
+            if [[ $1 =~ ^-- ]]; then
+             echo -e "Err: Unknow option $1 ignoring it."                 
+             shift     
+            fi
+             LST_ARG=$1             
+        ;;        
+   esac   
+shift;
 done
-
-
+#echo -e "Last Argument:[$1]"
 if [ -z $IS_LOCAL ]
 then
 echo -e "\nYour are about to restore from '$DEST_SERVER'" "Please enter $THIS_MACHINE's sudo password ->"
 sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other 
 fi
 
-RESTORE_FILE=$(ls $TARGET/backups/$THIS_MACHINE-*.$EXT_ENC|tail -n 1)
-if [[ -f $RESTORE_FILE ]] 
+BACKUP_FILE=$(ls $TARGET/$THIS_MACHINE-*.$EXT_ENC|tail -n 1)
+if [[ -f $BACKUP_FILE ]] 
 then
-echo "Located backup file is -> $RESTORE_FILE"
+echo "Located backup file is -> $BACKUP_FILE"
 	else
 echo "No backup file has been found!"
 exit;
@@ -82,21 +87,21 @@ then
 fi
 
 ##
-if [[ -z $LST_ARG ]]
+if [[ -z $LST_ARG || ! -f $LST_ARG ]]
 then
-	echo -e "No list of files has been provided, the whole backup will be restored into '$PWD' directory."
+	echo -e "No valid list of files has been provided,\nYour last argument was:[$LST_ARG] the whole backup will be restored into '$PWD' directory."
 	read -p "Are you sure you want to proceed? (Answer Yes/No): " rep; 
 	if [[ $rep =~ ^Y|^y ]]
 	then
-          gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | pv -N "Status" | tar -Jxv $LA1 $LA2 $LA3 $LA4 $LA5; 
+          gpg --decrypt --batch --passphrase $GPG_PASS $BACKUP_FILE | pv -N "Status" | tar -Jxv $LA1 $LA2 $LA3 $LA4 $LA5; 
 	else
 	     echo "Restore has been skipped.";
 	     exit 1;
 	fi
 else 
-echo "Restoring files from $LST_ARG..."
-gpg --decrypt --batch --passphrase $GPG_PASS $RESTORE_FILE | pv -N "Status" | tar xvJ --files-from $LST_ARG $LA1 $LA2 $LA3 $LA4 $LA5; 
-echo -e "done with restore from:\n $RESTORE_FILE\nOn:" `date` ", have a nice day!"
+echo "Restoring files from [$LST_ARG]..."
+gpg --decrypt --batch --passphrase $GPG_PASS $BACKUP_FILE | pv -N "Status" | tar xvJ --files-from $LST_ARG; 
+echo -e "done with restore from:\n $BACKUP_FILE\nOn:" `date` ", have a nice day!"
 fi
 
 # This file originated from https://github.com/wbudic/B_L_R_via_sshfs

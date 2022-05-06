@@ -2,12 +2,13 @@
 # Includes
 SRC_DIR=`dirname "$0"`
 if [[ -f ~/.config/backup.config ]]; then
-. ~/.config/backup.config
+CONFIG_FILE="$HOME/.config/backup.config"
 else
-. $SRC_DIR/backup.config
+CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
+. $CONFIG_FILE
 #
-TARGET="/mnt/$DEST_SERVER"
+TARGET="/mnt/$DEST_SERVER/$BACKUP_DIRECTORY"
 echo -e "\n--------------------------------------------------------------------------------------------------------------"
 echo -e "This is an backup archive restore list creator, use this program from the directory you restore to locally."
 echo -e "Backup location is DEST_SERVER='$DEST_SERVER'"
@@ -21,6 +22,7 @@ echo "$SRC_DIR/restore.sh --target=/mnt/$user/samsung  ./restore.lst"
 echo -e "Usage: $0 -keep - With -keep option so an previously created default named restore.lst will not be deleted.\n" 
 [[ "$1" == '-?' || "$1" == '-h' ]] && exit;
 
+echo -e "Processing from config: $CONFIG_FILE"
 if [[ ! -z "$1" && $1 =~ ^--target ]] 
 then
     TARGET=$(echo $1 | awk -v bd="$BACKUP_DIRECTORY" -F= '{print $2"/"bd}')
@@ -50,7 +52,7 @@ then
 echo -e "FAILED to access target backup directory!\n"
 exit 0
 fi
-sel=$(xzcat $TARGET/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi --header "Listing: $INDEX")
+sel=$(xzcat $TARGET/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi --header "Listing: $INDEX Config: $CONFIG_FILE")
 [[ -z $sel ]] &&  exit;
 #Delete previous restore.lst unless we have arguments.
 [[ -z $1   ]] && rm restore.lst > /dev/null;
@@ -73,13 +75,13 @@ do
             echo -e "Warning found local dir in path, selected as: $n"
             ls -laht ~/$n
             echo -e "-------------------------------"
-            ~/uvar.sh -n BCK_LST_CHK -v 1
+            ~/uvar.sh -s /var/tmp -n BCK_LST_CHK -v 1
       else
             echo -e "$n"
       fi
 done
 
-if [[ $(~/uvar.sh -r "BCK_LST_CHK") -eq 1 ]]
+if [[ $(~/uvar.sh -s /var/tmp -r "BCK_LST_CHK") -eq 1 ]]
 then 
 echo -e "Warning - existing directories that have been found and listed above." \
 "\n During an restore are not synched, this will overwite existing local files or leave unneeded files."
