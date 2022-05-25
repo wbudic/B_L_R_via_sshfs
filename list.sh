@@ -8,7 +8,6 @@ CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
 . $CONFIG_FILE
 #
-TARGET="/mnt/$DEST_SERVER/$BACKUP_DIRECTORY"
 echo -e "\n--------------------------------------------------------------------------------------------------------------"
 echo -e "This is an backup archive restore list creator, use this program from the directory you restore to locally."
 echo -e "Backup location is DEST_SERVER='$DEST_SERVER'"
@@ -42,11 +41,12 @@ then
 fi
 if [[ -z $IS_LOCAL ]];
 then
-echo "Accessing  -> $USER@$DEST_SERVER"
-sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other > /dev/null 2>&1
+[[ ! -d "$TARGET" ]] && echo "Exiting mount point not setup!" && exit 1
+echo -e "Accessing  -> $USER@$DEST_SERVER:$BACKUP_DIRECTORY"
+sudo sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other > /dev/null 2>&1
 fi
 
-INDEX=$(ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST);
+INDEX=$(sudo ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST);
 if [[ -z $INDEX ]]
 then
 echo -e "FAILED to access target backup directory!\n"
