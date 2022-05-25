@@ -42,11 +42,11 @@ fi
 if [[ -z $IS_LOCAL ]];
 then
 [[ ! -d "$TARGET" ]] && echo "Exiting mount point not setup!" && exit 1
-echo -e "Accessing  -> $USER@$DEST_SERVER:$BACKUP_DIRECTORY"
-sudo sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other > /dev/null 2>&1
+    echo -e "Accessing  -> $USER@$DEST_SERVER:$BACKUP_DIRECTORY"
+    sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other > /dev/null 2>&1
 fi
 
-INDEX=$(sudo ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST);
+INDEX=$(ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST);
 if [[ -z $INDEX ]]
 then
 echo -e "FAILED to access target backup directory!\n"
