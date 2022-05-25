@@ -8,7 +8,6 @@ CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
 . $CONFIG_FILE
 #
-TARGET="/mnt/$DEST_SERVER/$BACKUP_DIRECTORY"
 # LST_ARG=restore.lst and individual files to restore as arguments follow.
 LST_ARG=$1;
 
@@ -67,14 +66,15 @@ done
 #echo -e "Last Argument:[$1]"
 if [ -z $IS_LOCAL ]
 then
-echo -e "\nYour are about to restore from '$DEST_SERVER'" "Please enter $THIS_MACHINE's sudo password ->"
-sudo sshfs "$USER@$DEST_SERVER:" $TARGET -o allow_other 
+echo -e "\nYour are about to restore from '$USER@$DEST_SERVER:$BACKUP_DIRECTORY'" "Please enter $THIS_MACHINE's sudo password ->"
+sudo sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other 
+[[ $? -ne 1 ]] && echo -e "Exiting..." && exit 1
 fi
 
 BACKUP_FILE=$(ls $TARGET/$THIS_MACHINE-*.$EXT_ENC|tail -n 1)
 if [[ -f $BACKUP_FILE ]] 
 then
-echo "Located backup file is -> $BACKUP_FILE"
+echo -e "\nLocated backup file is -> $BACKUP_FILE\n"
 	else
 echo "No backup file has been found!"
 exit;
@@ -89,19 +89,30 @@ fi
 ##
 if [[ -z $LST_ARG || ! -f $LST_ARG ]]
 then
-	echo -e "No valid list of files has been provided,\nYour last argument was:[$LST_ARG] the whole backup will be restored into '$PWD' directory."
+	echo -e "No valid list of files has been provided as argument,\nShould next the whole backup be restored into the '$PWD' directory."
 	read -p "Are you sure you want to proceed? (Answer Yes/No): " rep; 
 	if [[ $rep =~ ^Y|^y ]]
 	then
           gpg --decrypt --batch --passphrase $GPG_PASS $BACKUP_FILE | pv -N "Status" | tar -Jxv $LA1 $LA2 $LA3 $LA4 $LA5; 
 	else
-	     echo "Restore has been skipped.";
+	     echo "Restore has been skipped."
 	     exit 1;
 	fi
 else 
-echo "Restoring files from [$LST_ARG]..."
+
+RESTORE_START=`date +%F%t%T`;
+FC=$(awk 'END{print NR}' $LST_ARG);
+echo "Restoring files from [$LST_ARG] ($FC) ..."
 gpg --decrypt --batch --passphrase $GPG_PASS $BACKUP_FILE | pv -N "Status" | tar xvJ --files-from $LST_ARG; 
-echo -e "done with restore from:\n $BACKUP_FILE\nOn:" `date` ", have a nice day!"
+RESTORE_END=`date +%F%t%T`;
+RESTORE_TIME=`dateutils.ddiff -f "%H hours and %M minutes %S seconds" "$RESTORE_START" "$RESTORE_END" \
+| awk '{gsub(/^0 hours and/,"");}1' | awk '{gsub(/^\s*0 minutes\s*/,"");}1'`
+echo "Restore started : $RESTORE_START"
+echo "Restore ended   : $RESTORE_END"
+echo "Restore took    : $RESTORE_TIME"
+
+echo -e "Done with restore from:\n $BACKUP_FILE, have a nice day!"
+
 fi
 
 # This file originated from https://github.com/wbudic/B_L_R_via_sshfs
