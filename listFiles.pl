@@ -57,6 +57,9 @@ Example Usage:
 
 find ~ -iname *.doc  | ./listFiles.pl -
 find ~ -type f \( -iname "*.jpg" -o -name "*.png" \) | ./listFiles.pl -
+# Much faster alternative to find files (~/.local/bin/fd -> /usr/bin/fdfind):
+fd . ~ -tf -e jpg -e png | ./listFiles.pl -
+# db based fastes is to use locate.
 locate "*/$USER/*.doc" | ./listFiles.pl -
 
 --------------------------------------------------------------------------------------------------------------
