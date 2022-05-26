@@ -51,7 +51,89 @@ else
     fi
 fi
 
-function DoBackup () {    
+
+# @TODO 20220526 Use this function only for intial setup and testing. 
+#                It can terminate the backup with nasty tar error on very huge lists of files having large size of files. 
+#                Reason why this is happening, is unknown to me. Hard to test, as it can take an hour to fail in middle of backup.
+#                The default, and working backup function is after this one.
+function DoBackupNEW () {
+
+echo "Obtaining file selection list..."
+pushd $HOME
+echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
+fd -H -t file --max-depth 1 . | sed -e 's/^\.\///' > /tmp/backup.lst
+#Check config file specified directories to exist.
+for dir in $DIRECTORIES
+do
+  if [[ -d $dir ]]; then
+    directories="$directories $dir"
+    else
+    echo "Skipping specified directory '$dir' not found!"
+    fi
+done
+echo "Collecting from:$directories"
+fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
+[[ $? != 0 ]] && exit $?;
+
+#################################################################################################
+if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
+
+ file_cnt=$(cat /tmp/backup.lst| wc -l)
+ echo "File count:$file_cnt";
+ file_size=0
+ while IFS= read -r file; 
+ do if [[ -n "$file" ]]; then size=$(stat -c %s "$file"); file_size=$(expr "$file_size" + "$size"); fi 
+ done < <(pv -N "Please wait, obtaining all file stats" -ptl -s "$file_cnt" /tmp/backup.lst)
+ file_size_formated=$(numfmt --to=iec-i $file_size)
+ echo '#########################################################################'; 
+ echo "  Started archiving! Expected archive size:$file_size ($file_size_formated)";
+ echo '#########################################################################'; 
+ tar cJvi --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups -T /tmp/backup.lst | \
+ pv  -N "Backup Status" -pe --timer --rate --bytes -w 80 -s "$file_size" | \
+ gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+else
+ tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
+ -T /tmp/backup.lst | \
+ gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
+fi
+#################################################################################################
+[[ $? != 0 ]] && exit $?;
+
+echo '#########################################################################'; 
+ls -lah "$TARGET/$BACKUP_FILE"; 
+if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_FILE" | awk '{print $5}') -eq 0 ]]; then
+echo "BACKUP FAILED FOR $TARGET/$BACKUP_FILE!!!"
+exit $?
+fi 
+#index
+cat /tmp/backup.lst | xz -9e -c > $TARGET/$BACKUP_INDEX
+
+if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
+echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
+exit $?
+fi 
+
+df -h "$TARGET/$BACKUP_FILE";
+
+#Remove older backups
+find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
+find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
+echo '#########################################################################'; 
+echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
+
+BACKUP_END=`date +%F%t%T`;
+BACKUP_TIME=`dateutils.ddiff -f "%H hours and %M minutes %S seconds" "$BACKUP_START" "$BACKUP_END" \
+| awk '{gsub(/^0 hours and /,"");}1' | awk '{gsub(/^0 minutes\s*/,"");}1'`
+echo "Backup started : $BACKUP_START"
+echo "Backup ended   : $BACKUP_END"
+echo "Backup took    : $BACKUP_TIME";
+
+popd > /dev/null
+echo -e "\nDone with backup of $HOME on " `date` ", have a nice day!"
+
+}
+
+function DoBackup () {
 echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
 pushd $HOME
 
