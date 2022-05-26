@@ -46,13 +46,14 @@ then
     sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other > /dev/null 2>&1
 fi
 
-INDEX=$(ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST);
+INDEX=$(ls -lh $TARGET/$THIS_MACHINE-*.$EXT_LST |sort -r|head -n 1);
 if [[ -z $INDEX ]]
 then
 echo -e "FAILED to access target backup directory!\n"
 exit 0
 fi
-sel=$(xzcat $TARGET/$THIS_MACHINE-*.$EXT_LST | sort -f -i -u | fzf --multi --header "Listing: $INDEX Config: $CONFIG_FILE")
+INDEX_FILE=$(echo "$INDEX" | awk '{print $9}')
+sel=$(xzcat "$INDEX_FILE" | sort -f -i -u | fzf --multi --header "Listing: $INDEX Config: $CONFIG_FILE")
 [[ -z $sel ]] &&  exit;
 #Delete previous restore.lst unless we have arguments.
 [[ -z $1   ]] && rm restore.lst > /dev/null;
