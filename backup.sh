@@ -53,8 +53,8 @@ fi
 
 
 # @TODO 20220526 Use this function only for intial setup and testing. 
-#                It can terminate the backup with nasty tar error on very huge lists of files having large size of files. 
-#                Reason why this is happening, is unknown to me. Hard to test, as it can take an hour to fail in middle of backup.
+#                It can terminate the backup with nasty tar error on very huge lists of files also having large size of files in the list. 
+#                Reason why this is happening, is unknown to me. Hard to test, as it can take up to an hour to fail in middle of backup.
 #                The default, and working backup function is after this one.
 function DoBackupNEW () {
 
