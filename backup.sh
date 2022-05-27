@@ -11,13 +11,27 @@ fi
 DATE=$(date +%Y%m%d)
 BACKUP_FILE="$THIS_MACHINE-$DATE.$EXT_ENC"
 BACKUP_INDEX="$THIS_MACHINE-$DATE.$EXT_LST"
-BACKUP_START=`date +%F%t%T`
+export BACKUP_START=`date +%F%t%T`
+
+if ! command -v fd &>  /dev/null 
+then
+    echo "Terminating, the 'find-fd' utility not found! Try -> sudo apt install fd-find"
+    exit
+fi
+
+if ! command -v gpg &>  /dev/null 
+then
+    echo "Terminating, the 'gpg' utility <https://www.gnupg.org> not found! Try -> sudo apt install pgp"
+    exit
+fi
+
+
 # By default the backup goes to a mounting point target in the config file.
 if [[ -z "$1" ]] 
 then        
     echo "Your are about to remote backup '$HOME' to $TARGET";
     if [ `stat -c%d "$TARGET"` != `stat -c%d "$TARGET/.."` ]; then
-        echo "Pass, $TARGET is already mounted."
+        echo "We have access, $TARGET is already mounted."
     else
         sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other
     fi    
@@ -52,11 +66,7 @@ else
 fi
 
 
-# @TODO 20220526 Use this function only for intial setup and testing. 
-#                It can terminate the backup with nasty tar error on very huge lists of files also having large size of files in the list. 
-#                Reason why this is happening, is unknown to me. Hard to test, as it can take up to an hour to fail in middle of backup.
-#                The default, and working backup function is after this one.
-function DoBackupNEW () {
+function DoBackup () {
 
 echo "Obtaining file selection list..."
 pushd $HOME
@@ -71,22 +81,39 @@ do
     echo "Skipping specified directory '$dir' not found!"
     fi
 done
-echo "Collecting from:$directories"
+echo "Collecting files from: $directories"
 fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
 [[ $? != 0 ]] && exit $?;
 
 #################################################################################################
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
-
  file_cnt=$(cat /tmp/backup.lst| wc -l)
- echo "File count:$file_cnt";
+ echo "Backup File count: $file_cnt";
+ target_avail_space=$(df "$TARGET" | awk '{print $4}' | tail -n 1) 
+ echo "Target avail space: $target_avail_space"
+ 
  file_size=0
  while IFS= read -r file; 
- do if [[ -n "$file" ]]; then size=$(stat -c %s "$file"); file_size=$(expr "$file_size" + "$size"); fi 
- done < <(pv -N "Please wait, obtaining all file stats" -ptl -s "$file_cnt" /tmp/backup.lst)
- file_size_formated=$(numfmt --to=iec-i $file_size)
+ do if [[ -n "$file" ]]; then size=$(stat -c %s "$file"); file_size=$(($file_size + $size)); fi 
+ done < <(pv -N "Please wait, obtaining all file stats" -ptl -w 100 -s "$file_cnt" /tmp/backup.lst)
+ 
+ file_size_formated=$(numfmt --to=iec-i "$file_size") 
+ file_size=$(($file_size / 1024));
+ echo "Backup size in kbytes:$file_size";
+ if [[ $file_size -gt $target_avail_space ]] 
+ then
+    target_avail_space=$(numfmt --to=iec-i $target_avail_space) 
+    echo -e "\nAvailable space on $TARGET is $target_avail_space,"
+    echo -e "this is less to volume required of $file_size_formated of $file_cnt files uncompressed.\n"
+	read -p "Are you sure you want to proceed? (Answer Yes/No): " rep; 
+	if [[ ! $rep =~ ^Y|^y ]]
+	then
+	     echo "Backup has been skipped."
+	     exit 1;
+	fi
+ fi
  echo '#########################################################################'; 
- echo "  Started archiving! Expected archive size:$file_size ($file_size_formated)";
+ echo "  Started archiving! Expected archive size: $file_size_formated";
  echo '#########################################################################'; 
  tar cJvi --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups -T /tmp/backup.lst | \
  pv  -N "Backup Status" -pe --timer --rate --bytes -w 80 -s "$file_size" | \
@@ -97,7 +124,7 @@ else
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
 fi
 #################################################################################################
-[[ $? != 0 ]] && exit $?;
+[[ $? != 0 ]] && echo "FATAL ERROR, EXITING BACKUP FOR $TARGET/$BACKUP_FILE !" && exit $?;
 
 echo '#########################################################################'; 
 ls -lah "$TARGET/$BACKUP_FILE"; 
@@ -105,9 +132,9 @@ if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_FILE" | awk '{print $5}') -eq 0 ]]; 
 echo "BACKUP FAILED FOR $TARGET/$BACKUP_FILE!!!"
 exit $?
 fi 
-#index
+# Index
 cat /tmp/backup.lst | xz -9e -c > $TARGET/$BACKUP_INDEX
-
+##
 if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
 echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
 exit $?
@@ -116,78 +143,25 @@ fi
 df -h "$TARGET/$BACKUP_FILE";
 
 #Remove older backups
-find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
-find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
+find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + > /dev/null 2>&1
+find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + > /dev/null 2>&1
 echo '#########################################################################'; 
 echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
 
-BACKUP_END=`date +%F%t%T`;
-BACKUP_TIME=`dateutils.ddiff -f "%H hours and %M minutes %S seconds" "$BACKUP_START" "$BACKUP_END" \
+export BACKUP_END=`date +%F%t%T`;
+export BACKUP_TIME=`dateutils.ddiff -f "%H hours and %M minutes %S seconds" "$BACKUP_START" "$BACKUP_END" \
 | awk '{gsub(/^0 hours and /,"");}1' | awk '{gsub(/^0 minutes\s*/,"");}1'`
 echo "Backup started : $BACKUP_START"
 echo "Backup ended   : $BACKUP_END"
 echo "Backup took    : $BACKUP_TIME";
 
 popd > /dev/null
+# Mine (Will Budic) user variable concept, should be part of the system.
+# So if the computer has been shut down on the last given backup date, 
+# to start an backup immediately on the next cron_maintenance script run.
+[[ -f "uvar.sh" ]] && uvar.sh -n "LAST_BACKUP_DATE" -v "$BACKUP_END"
 echo -e "\nDone with backup of $HOME on " `date` ", have a nice day!"
 
-}
-
-function DoBackup () {
-echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
-pushd $HOME
-
-#################################################################################################
-if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
- tar cJvi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- $DIRECTORIES $WILDFILES crontab.lst | pv -N "Backup Status" -t -b -e -r | \
- gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
-else
- tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- $DIRECTORIES $WILDFILES crontab.lst | \
- gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
-fi
-#################################################################################################
-[[ $? != 0 ]] && exit $?;
-
-echo '#########################################################################'; 
-ls -lah "$TARGET/$BACKUP_FILE"; 
-if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_FILE" | awk '{print $5}') -eq 0 ]]; then
-echo "BACKUP FAILED FOR $TARGET/$BACKUP_FILE!!!"
-exit $?
-fi 
-df -h "$TARGET/$BACKUP_FILE";
-#Remove older backups
-find $TARGET/backups/$THIS_MACHINE*.$EXT_ENC -mtime +1 -exec rm {} + 
-find $TARGET/backups/$THIS_MACHINE*.$EXT_LST -mtime +1 -exec rm {} + 
-echo '#########################################################################'; 
-echo "Backup has finished for: $USER@$DEST_SERVER:$TARGET/$BACKUP_FILE"
-
-#################################################################################################
-echo "Creating contents list file, please wait..."
-if [[ $BACKUP_VERBOSE -eq 1 ]]; then
- gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
- tar -Jt | pv -N "Backup Status" | xz -9e -c > $TARGET/$BACKUP_INDEX
-else
- gpg -q --decrypt --batch --passphrase $GPG_PASS "$TARGET/$BACKUP_FILE" | \
- tar -Jt | xz -9e -c > $TARGET/$BACKUP_INDEX
-fi
-#################################################################################################
-
-if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
-echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
-exit $?
-fi 
-
-BACKUP_END=`date +%F%t%T`;
-BACKUP_TIME=`dateutils.ddiff -f "%H hours and %M minutes %S seconds" "$BACKUP_START" "$BACKUP_END" \
-| awk '{gsub(/^0 hours and/,"");}1' | awk '{gsub(/^\s*0 minutes\s*/,"");}1'`
-echo "Backup started : $BACKUP_START"
-echo "Backup ended   : $BACKUP_END"
-echo "Backup took    : $BACKUP_TIME";
-
-popd > /dev/null
-echo -e "\nDone with backup of $HOME on " `date` ", have a nice day!"
 }
 
 ##
