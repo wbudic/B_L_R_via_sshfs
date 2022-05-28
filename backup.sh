@@ -71,7 +71,9 @@ function DoBackup () {
 echo "Obtaining file selection list..."
 pushd $HOME
 echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
-fd -H -t file --max-depth 1 . | sed -e 's/^\.\///' > /tmp/backup.lst
+
+fd -H -t file --max-depth 1 . | sed -e 's/^\.\///' | sort -d > /tmp/backup.lst
+
 #Check config file specified directories to exist.
 for dir in $DIRECTORIES
 do
@@ -85,22 +87,42 @@ echo "Collecting files from: $directories"
 fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
 [[ $? != 0 ]] && exit $?;
 
+file_size=0
+file_cnt=0
+set -f
+for entry in $WILDFILES
+do
+ if [[ $entry =~ ^\*\. ]]; then
+        echo "Igoning obsolete extension glob steting -> $entry"        
+ else
+       set +f
+       #via echo glob translate to find the files.
+       echo $entry | sed -e 's/ /\n/g' > /tmp/backup_wilderbeasts.lst
+       set -f
+       while IFS= read -r file; 
+       do if [[ -n "$file" ]]; then 
+          size=$(stat -c %s "$file"); file_size=$(($file_size + $size));  file_cnt=$(($file_cnt + 1))
+          echo $file >> /tmp/backup.lst
+       fi 
+       done < /tmp/backup_wilderbeasts.lst
+ fi
+done
+set +f
+
 #################################################################################################
-if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
- file_cnt=$(cat /tmp/backup.lst| wc -l)
+if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then 
+
+ while NFS= read -r file; 
+    do if [[ -n "$file" ]]; then size=$(stat -c %s "$file"); file_size=$(($file_size + $size)); file_cnt=$(($file_cnt + 1)); fi 
+ done < <(pv -N "Please wait, obtaining all file stats" -pt -w 100 /tmp/backup.lst)
  echo "Backup File count: $file_cnt";
  target_avail_space=$(df "$TARGET" | awk '{print $4}' | tail -n 1) 
  echo "Target avail space: $target_avail_space"
- 
- file_size=0
- while IFS= read -r file; 
- do if [[ -n "$file" ]]; then size=$(stat -c %s "$file"); file_size=$(($file_size + $size)); fi 
- done < <(pv -N "Please wait, obtaining all file stats" -ptl -w 100 -s "$file_cnt" /tmp/backup.lst)
- 
  file_size_formated=$(numfmt --to=iec-i "$file_size") 
- file_size=$(($file_size / 1024));
+ file_size_kb=$(($file_size / 1024));
  echo "Backup size in kbytes:$file_size";
- if [[ $file_size -gt $target_avail_space ]] 
+  
+ if [[ $file_size_kb -gt $target_avail_space ]] 
  then
     target_avail_space=$(numfmt --to=iec-i $target_avail_space) 
     echo -e "\nAvailable space on $TARGET is $target_avail_space,"
@@ -115,14 +137,15 @@ if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then
  echo '#########################################################################'; 
  echo "  Started archiving! Expected archive size: $file_size_formated";
  echo '#########################################################################'; 
- tar cJvi --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups -T /tmp/backup.lst | \
- pv  -N "Backup Status" -pe --timer --rate --bytes -w 80 -s "$file_size" | \
+ # Notice - tar archives and compresses in blocks, piped out to pv is not actual byte mass, hence no lineral progressbar.
+ tar cJvi --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups -P -T /tmp/backup.lst | \
+ pv -N "Backup Status" --timer --rate --bytes -pw 70| \
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
-else
- tar cJi $EXCLUDES --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
- -T /tmp/backup.lst | \
+ else
+ tar cJi --exclude-caches-all --exclude-vcs --exclude-vcs-ignores --exclude-backups \
+ -P -T /tmp/backup.lst | \
  gpg -c --no-symkey-cache --batch --passphrase $GPG_PASS > $TARGET/$BACKUP_FILE 2>&1;
-fi
+fi #of [[ "$BACKUP_VERBOSE" -eq 1 ]];
 #################################################################################################
 [[ $? != 0 ]] && echo "FATAL ERROR, EXITING BACKUP FOR $TARGET/$BACKUP_FILE !" && exit $?;
 
@@ -134,6 +157,7 @@ exit $?
 fi 
 # Index
 cat /tmp/backup.lst | xz -9e -c > $TARGET/$BACKUP_INDEX
+#rm /tmp/backup.lst
 ##
 if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
 echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
