@@ -34,32 +34,38 @@ if [[ $1 =~ ^--gpg-pass= ]]
 then
   GPG_PASS=$(echo $1 | awk -F= '{print $2}')
   echo -e "Using gpg-pass: $GPG_PASS"
-  shift; continue
+  shift; continue; 
 fi
-   case "$1" in
-        -h|--help)
-          showHelp; exit
-          ;;
-        --gpg-pass)
-          shift
-          GPG_PASS="$1"
-          echo -e "Using gpg-pass: $GPG_PASS"
-          ;;
-        --target)
-          shift
-          TARGET="$1"
-          echo -e "Target directory set as: $TARGET"          
-          ;;
-        *)
-            if [[ $1 =~ ^-- ]]; then
-             echo -e "Err: Unknow option $1 ignoring it. Try -h|--help?"                 
-             shift     
-            fi
-             LST_ARG=$1             
-        ;;        
-   esac   
-shift;
+case "$1" in
+    -h|--help)
+      showHelp; exit
+      ;;
+    --gpg-pass)
+      shift
+      GPG_PASS="$1"
+      echo -e "Using gpg-pass: $GPG_PASS"
+      ;;
+    --target)
+      shift
+      TARGET="$1"
+      shift
+      echo -e "Target directory set as: $TARGET"          
+      continue
+      ;;
+    *)
+        if [[ $1 =~ ^-- ]]; then
+          echo -e "Err: Unknow option $1 ignoring it. Try -h|--help?"
+          shift;
+          continue
+        fi
+
+        LST_ARG=$1;
+        shift 
+    ;;        
+esac
 done
+
+
 
 [[ ! -d "$TARGET" ]] && "$TARGET=$BACKUP_DIRECTORY/$TARGET" && echo -e "Reseting to: $TARGET"
   if [[ ! -d "$TARGET" ]] 
@@ -75,7 +81,7 @@ done
   else
       IS_LOCAL=1
       DEST_SERVER=$THIS_MACHINE
-      LST_ARG=$2;LA1=$3;LA2=$4;LA3=$5;LA4=$6;
+      LA1=$2;LA2=$3;LA3=$4;LA4=$5;
   fi  
 
 
@@ -123,6 +129,9 @@ function end (){
 }
 
 ##
+
+#echo -e "LST_ARG=$LST_ARG"
+
 if [[ -z $LST_ARG || ! -f $LST_ARG ]]
 then
 	echo -e "No valid list of files has been provided as argument,\nShould next the whole backup be restored into the '$PWD' directory."
