@@ -72,6 +72,7 @@ echo "Obtaining file selection list..."
 pushd $HOME
 echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
 
+# Add by default all the dotties hotties first.
 fd -H -t file --max-depth 1 . | sed -e 's/^\.\///' | sort -d > /tmp/backup.lst
 
 #Check config file specified directories to exist.
@@ -79,13 +80,26 @@ for dir in $DIRECTORIES
 do
   if [[ -d $dir ]]; then
     directories="$directories $dir"
+    elif [[ -f $dir ]]; then #maybe glob expanded to an file?
+        glob_files=$(echo -e "$glob_files $dir\f") 
     else
-    echo "Skipping specified directory '$dir' not found!"
+        echo "Skipping specified directory '$dir' not found!"
     fi
 done
-echo "Collecting files from: $directories"
-fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
-[[ $? != 0 ]] && exit $?;
+
+if [[ ! -z  $directories ]]; then
+    echo "Collecting files from: $directories"
+    fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
+    [[ $? != 0 ]] && exit $?;
+fi
+
+if [[ ! -z  $glob_files ]]; then    
+    glob_files=$(echo "$glob_files" | perl -pe 's/\f\s*/\n/g')    
+    echo -e "Adding glob files:\n$glob_files"    
+    echo -e "$glob_files" | sed -e 's/^[[:blank:]]*//' >> /tmp/backup.lst
+    [[ $? != 0 ]] && exit $?;
+fi
+
 
 file_size=0
 file_cnt=0
@@ -93,7 +107,7 @@ set -f
 for entry in $WILDFILES
 do
  if [[ $entry =~ ^\*\. ]]; then
-        echo "Igoning obsolete extension glob steting -> $entry"        
+        echo "Igoning obsolete extension glob setting -> $entry"        
  else
        set +f
        #via echo glob translate to find the files.
@@ -102,12 +116,15 @@ do
        while IFS= read -r file; 
        do if [[ -n "$file" ]]; then 
           size=$(stat -c %s "$file"); file_size=$(($file_size + $size));  file_cnt=$(($file_cnt + 1))
-          echo $file >> /tmp/backup.lst
+          #[[ ! -d  ~/_BACKUP_WILDFILES ]] &&  mkdir ~/_BACKUP_WILDFILES
+          rsync -rlR $file ~/_BACKUP_WILDFILES
+          echo "_BACKUP_WILDFILES$file" >> /tmp/backup.lst
        fi 
        done < /tmp/backup_wilderbeasts.lst
  fi
 done
 set +f
+
 
 #################################################################################################
 if [[ "$BACKUP_VERBOSE" -eq 1 ]]; then 
@@ -157,7 +174,9 @@ exit $?
 fi 
 # Index
 cat /tmp/backup.lst | xz -9e -c > $TARGET/$BACKUP_INDEX
-#rm /tmp/backup.lst
+rm /tmp/backup.lst
+rm /tmp/backup_wilderbeasts.lst
+[[ -d  ~/_BACKUP_WILDFILES ]] && rm -rf ~/_BACKUP_WILDFILES 
 ##
 if [[ $? == 0 &&  $(ls -la "$TARGET/$BACKUP_INDEX" | awk '{print $5}') -eq 0 ]]; then
 echo "BACKUP FAILED FOR $TARGET/$BACKUP_INDEX!!!"
