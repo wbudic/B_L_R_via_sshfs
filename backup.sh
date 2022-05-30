@@ -6,12 +6,7 @@ CONFIG_FILE="$HOME/.config/backup.config"
 else
 CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
-. $CONFIG_FILE
 #
-DATE=$(date +%Y%m%d)
-BACKUP_FILE="$THIS_MACHINE-$DATE.$EXT_ENC"
-BACKUP_INDEX="$THIS_MACHINE-$DATE.$EXT_LST"
-export BACKUP_START=`date +%F%t%T`
 
 if ! command -v fd &>  /dev/null 
 then
@@ -26,18 +21,98 @@ then
 fi
 
 
-# By default the backup goes to a mounting point target in the config file.
-if [[ -z "$1" ]] 
+if [[ $1 =~ ^--config= ]]
+then
+  _load=$(echo $1 | awk -F= '{print $2}');  shift;
+elif [[ $1 =~ ^--config ]]; then
+  shift; _load="$1"; shift
+fi
+if [[ $_load ]]; then 
+    if [[ -f $_load ]]; then
+        . $_load ; echo "Loaded config file '$_load'"; 
+    else
+        echo "Error! Config file '$_load' not found!"; exit 2;
+    fi
+else
+        . $CONFIG_FILE
+fi
+
+if [[ $1 =~ ^--target= ]]
+then
+  TARGET=$(echo $1 | awk -F= '{print $2}')
+  echo -e "Target directory set as: $TARGET"; IS_LOCAL=1
+  shift; 
+fi
+[[ $1 =~ ^--target ]] && shift #handled as last argument later.
+
+if [[ $1 =~ ^--name= ]]
+then
+  POSFIX=$(echo $1 | awk -F= '{print $2}');shift
+elif [[ $1 =~ ^--name ]]; then
+  shift; POSFIX="$1";
+fi
+[[ $POSFIX ]] && echo -e "Posfix name set as: $POSFIX" && POSTFIX="$POSFIX-";
+
+function showHelp (){
+read -r -d '' help <<-__help
+\e[1;31mBackup Utility \e[0m - by Will Budić (Mon 30 May 2022)\e[17m
+       \e[32m This utility backups your home directory, via an backup.config file specified to an target directory.\e[0m
+    \e[1;33mUsage:\e[0;32m
+
+    backup             - Uses all defaults, see/modify this settings in ~/.config/backup.config.
+    backup /media/path - Sets destination target to alternative /media/path, this will be checked.
+
+    \e[1;33mOptions:\e[0m
+
+    \e[0;37m--config\e[0;32m{=} {path} - Alternative to ~/.config/backup.config to load, potentialy overwritting default.
+                         This option is usually used in combination with the --name posfix.
+
+    \e[0;37m--target\e[0;32m{=} {path} - Specifically assigned backup target path.
+    \e[0;37m--name=\e[0;32m{word}      - Assign posfix name for current run, the default config doesn't use it or set it, 
+                         so an potetnially existing backup on the target will not be overwritten,
+                         i.e. while testing.
+    
+    \e[0;37m--help\e[1;32m | \e[0;37m-?\e[0;32m        - Prints this help.
+
+    The reason for the backup command being semi-automatic via an config file, is to expect have everything setup in that file
+    and usually run once in a week as a background cron job. Or from the command line. 
+    As an typical backup can take an long time to run. Use the enarch utility (file://$SRC_DIR/enarch.pl), 
+    for smaller e-safe archives instead.
+
+    The resulting backup will be both encrypted and compressed as the final product. 
+    \e[31mWarning\e[0m -> \e[0;32mDo not keep an copy of the key or config file on the target or server computer. Store it in a password manager.
+    Recomended passwprd manaker I use is -> https://keepassxc.org/
+
+\e[0mThis script originated from https://github.com/wbudic/B_L_R_via_sshfs
+__help
+echo -e "$help"
+exit
+}
+[[ $1 =~ ^--h || $1 =~ ^-\? ]] && showHelp
+
+
+DATE=$(date +%Y%m%d)
+export BACKUP_START=`date +%F%t%T`
+BACKUP_FILE="$THIS_MACHINE-$POSFIX$DATE.$EXT_ENC"
+BACKUP_INDEX="$THIS_MACHINE-$POSFIX$DATE.$EXT_LST"
+
+if [[ -z IS_LOCAL || -z "$1" ]] 
 then        
-    echo "Your are about to remote backup '$HOME' to $TARGET";
-    if [ `stat -c%d "$TARGET"` != `stat -c%d "$TARGET/.."` ]; then
+    # By default the backup goes to a remote mounting point target in the config file.
+    #[[ ! `stat -c%d "$TARGET" > /dev/null 2>&1` ]] && echo "Error target '$TARGET' is not valid!" && exit 2
+    
+    if [ `stat -c%d "$TARGET" 2>&1` != `stat -c%d "$TARGET/.." 2>&1` ]; then
+         [[ $? -eq 1 ]] && exit 1
         echo "We have access, $TARGET is already mounted."
     else
+        echo "Your are about to remote backup '$HOME' to $TARGET";    
         sshfs "$USER@$DEST_SERVER:$BACKUP_DIRECTORY" $TARGET -o allow_other
+        [[ $? -eq 1 ]] && echo "Error aborting! '$TARGET' is not valid!" && exit 2
+        echo "Mounted $TARGET."
     fi    
-    [[ $? -eq 1 ]] && exit 1
-else        
-    TARGET=$1
+else
+    [[ $1 ]] && TARGET=$1
+    #echo "Local target: $TARGET";
     if [[ ! -d "$TARGET" ]] 
     then
         echo -e "\nTarget location doesn't exits: $TARGET"
@@ -47,11 +122,12 @@ else
         find /mnt/ -maxdepth 2 -type d -not -path '*/\.*' -print
         exit 1
     else
-        echo "Your are about to backup locally to $TARGET/$BACUP_DIRECTORY/$BACKUP_FILE"
+        echo "Your are about to backup locally to $TARGET/$BACKUP_DIRECTORY/$BACKUP_FILE"
     fi
 
     if [[ ! -d "$TARGET/$BACKUP_DIRECTORY" ]]; then
-            echo -e "Target directoy doesn't exist: $TARGET"
+            echo -e "Target directory doesn't exist: $TARGET"
+            echo -e "If this is expected to be mounted on another server, you don't want it to be created from this script."
             declare -i times=0
             while true; do
                 read -p "Do you want it to be created ?" yn
@@ -213,4 +289,5 @@ code --list-extensions > vs_code_extensions.lst
 DoBackup 
 exit 0
 
-# This script originated from https://github.com/wbudic/B_L_R_via_sshfs
+
+
