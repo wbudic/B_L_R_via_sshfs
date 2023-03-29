@@ -53,16 +53,17 @@ echo -e "FAILED to access target backup directory!\n"
 exit 0
 fi
 INDEX_FILE=$(echo "$INDEX" | awk '{print $9}')
-sel=$(xzcat "$INDEX_FILE" | sort -f -i -u | fzf --multi --header "Listing: $INDEX Config: $CONFIG_FILE")
+echo -e "Listing $INDEX_FILE\n"
+sel=$(xzcat "$INDEX_FILE" | sort -f -u | fzf --multi --header "Listing: $INDEX Config: $CONFIG_FILE")
 [[ -z $sel ]] &&  exit;
 #Delete previous restore.lst unless we have arguments.
-[[ -z $1   ]] && rm restore.lst > /dev/null;
+[[ -z $1   ]] && rm restore.lst > /dev/null 2>&1
 
-
-for n in $sel
+for n in "$sel"
 do
-  echo $n >> restore.lst
+  echo -e "$n" >> restore.lst
 done
+
 echo -e "Restore list contents check:"
 
 # Following is an good example why uvars are needed, bash can only forward $variables to spawn shells global variables.
