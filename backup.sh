@@ -8,7 +8,7 @@ CONFIG_FILE="$SRC_DIR/backup.config"
 fi 
 #
 
-if ! command -v fd &>  /dev/null 
+if ! command -v /usr/bin/fdfind &>  /dev/null 
 then
     echo "Terminating, the 'find-fd' utility not found! Try -> sudo apt install fd-find"
     exit
@@ -149,7 +149,7 @@ pushd $HOME
 echo -e "Started creating $TARGET/$BACKUP_FILE   Using Config:$CONFIG_FILE"
 
 # Add by default all the dotties hotties first.
-fd -H -t file --max-depth 1 . | sed -e 's/^\.\///' | sort -d > /tmp/backup.lst
+/usr/bin/fdfind -H -t file --max-depth 1 . | sed -e 's/^\.\///' | sort -d > /tmp/backup.lst
 
 #Check config file specified directories to exist.
 for dir in $DIRECTORIES
@@ -165,7 +165,7 @@ done
 
 if [[ ! -z  $directories ]]; then
     echo "Collecting files from: $directories"
-    fd -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
+    /usr/bin/fdfind -H -t file -I $EXCLUDES . $directories | sort -d  >> /tmp/backup.lst
     [[ $? != 0 ]] && exit $?;
 fi
 
