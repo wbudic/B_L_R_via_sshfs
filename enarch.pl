@@ -291,7 +291,7 @@ sub gpgPassCodeGenerate {
     foreach(1..8){$code .= &rc . '-'}
     $code =~ s/(-$)//;
     return $code;
-}sub rc {sprintf ("%s%s", $DIGITS[rand(28)], $DIGITS[rand(28)]);return}
+}sub rc {sprintf ("%s%s", $DIGITS[rand(28)], $DIGITS[rand(28)])}
 
 sub gpgPassCodeCheck {
     my ($arg, $pass) = @_;
