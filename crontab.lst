@@ -1,0 +1,9 @@
+# m h  dom mon dow   command
+0 */3 * * * bash ~/cron_bitcoin.sh >> ~/cron.log 2>&1
+1 */4 * * * bash ~/cron_weather.sh >> ~/cron.log 2>&1
+3 */6 * * * bash ~/cron_exchange_rate.sh >> ~/cron.log 2>&1
+4 */8 * * * bash ~/cron_log_maintainer.sh > /dev/null 2>&1
+7 */8 * * * bash ~/cron_postgresSQL_backup.sh >> ~/cron.log 2>&1
+9 */8 * * * bash ~/cron_backup_nuc_to_local.sh >> ~/cron.log 2>&1
+15 7 * * 1 bash ~/cron_backup_to_nuc.sh >> ~/cron.log 2>&1
+

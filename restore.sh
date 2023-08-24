@@ -11,18 +11,6 @@ fi
 # LST_ARG=restore.lst and individual files to restore as arguments follow.
 LST_ARG=$1;
 
-function showHelp () {
-echo -e "--------------------------------------------------------------------------------------------------------------"
-echo -e "Backup restore Utility\n\t This utility restores latest backup found in an target directory."
-echo -e "The default settings or arguments are set in the backup.config file.\n And the list utility can be used for fast individual file slections. Before calling restore."
-echo -e "Other availabe command line options:"
-echo -e "-h|--help - For this help."
-echo -e "--target {full_path_to_dir} - To select alterneative backup target location."
-echo -e "                              Note - BACKUP_DIRECTORY and TARGET config settings will be also ignored."
-echo -e "--gpg-pass {the_other_gpg_pass} - To overwrite the pgp_pass setting, found in backup.config."
-echo -e "--------------------------------------------------------------------------------------------------------------"
-}
-
 while [ ! -z "$1" ];do
 if [[ $1 =~ ^--target= ]]
 then
@@ -65,7 +53,17 @@ case "$1" in
 esac
 done
 
-
+function showHelp () {
+echo -e "--------------------------------------------------------------------------------------------------------------"
+echo -e "Backup restore Utility\n\t This utility restores latest backup found in an target directory."
+echo -e "The default settings or arguments are set in the backup.config file.\n And the list utility can be used for fast individual file slections. Before calling restore."
+echo -e "Other availabe command line options:"
+echo -e "-h|--help - For this help."
+echo -e "--target {full_path_to_dir} - To select alterneative backup target location."
+echo -e "                              Note - BACKUP_DIRECTORY and TARGET config settings will be also ignored."
+echo -e "--gpg-pass {the_other_gpg_pass} - To overwrite the pgp_pass setting, found in backup.config."
+echo -e "--------------------------------------------------------------------------------------------------------------"
+}
 
 [[ ! -d "$TARGET" ]] && "$TARGET=$BACKUP_DIRECTORY/$TARGET" && echo -e "Reseting to: $TARGET"
   if [[ ! -d "$TARGET" ]] 
